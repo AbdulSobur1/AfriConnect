@@ -59,54 +59,54 @@ export default async function HomePage() {
       <Header userRole="tourist" userName="Sarah Johnson" />
 
       <main className="min-h-screen bg-background">
-        <section className="relative overflow-hidden border-b border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(190,89,48,0.16),transparent_34%),linear-gradient(180deg,rgba(254,248,240,0.98),rgba(250,243,233,0.88))] py-18 md:py-24">
+        <section className="relative overflow-hidden border-b border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(190,89,48,0.16),transparent_34%),linear-gradient(180deg,rgba(254,248,240,0.98),rgba(250,243,233,0.88))] py-14 sm:py-16 md:py-24">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(111,78,55,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(111,78,55,0.04)_1px,transparent_1px)] bg-[size:120px_120px] opacity-35" />
           <div className="container relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]">
+            <div className="grid items-center gap-8 sm:gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:gap-12">
               <div className="max-w-3xl">
-                <Badge className="mb-5 rounded-full bg-background/85 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-primary shadow-sm hover:bg-background/85">
+                <Badge className="mb-5 inline-flex max-w-full rounded-full bg-background/85 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary shadow-sm hover:bg-background/85 sm:text-xs sm:tracking-[0.22em]">
                   Discover authentic cultural travel
                 </Badge>
-                <h1 className="text-5xl font-bold leading-[1.04] tracking-tight text-foreground md:text-7xl">
+                <h1 className="text-4xl font-bold leading-[1.04] tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
                   Discover and book authentic African cultural experiences.
                 </h1>
-                <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground md:text-xl">
+                <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8 md:text-xl">
                   Explore experiences hosted by local experts, compare details with confidence, and
                   book the moments that match how you want to travel.
                 </p>
 
                 <form
                   action="/experiences"
-                  className="mt-8 grid gap-3 rounded-[30px] border border-border/70 bg-background/88 p-3 shadow-[0_18px_50px_-34px_rgba(53,33,20,0.45)] backdrop-blur md:grid-cols-[1fr_auto]"
+                  className="mt-8 grid gap-3 rounded-[28px] border border-border/70 bg-background/88 p-3 shadow-[0_18px_50px_-34px_rgba(53,33,20,0.45)] backdrop-blur md:grid-cols-[1fr_auto]"
                 >
-                  <div className="flex items-center gap-3 rounded-2xl bg-muted/45 px-4">
-                    <Search className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-muted/45 px-4">
+                    <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <Input
                       name="search"
                       placeholder="Search by city, experience, or interest"
                       className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
                     />
                   </div>
-                  <Button type="submit" size="lg" className="rounded-2xl px-6">
+                  <Button type="submit" size="lg" className="w-full rounded-2xl px-6 md:w-auto">
                     Explore Experiences
                   </Button>
                 </form>
 
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Button asChild variant="outline" className="rounded-full">
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  <Button asChild variant="outline" className="w-full rounded-full sm:w-auto">
                     <Link href="/experiences">
                       Browse all experiences
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </Button>
-                  <Button asChild variant="ghost" className="rounded-full">
+                  <Button asChild variant="ghost" className="w-full rounded-full sm:w-auto">
                     <Link href="/quiz">Find your match</Link>
                   </Button>
                 </div>
               </div>
 
               <div className="grid gap-4">
-                <div className="rounded-[32px] border border-border/70 bg-background/88 p-6 shadow-[0_30px_90px_-45px_rgba(53,33,20,0.55)] backdrop-blur">
+                <div className="rounded-[28px] border border-border/70 bg-background/88 p-4 shadow-[0_30px_90px_-45px_rgba(53,33,20,0.55)] backdrop-blur sm:rounded-[32px] sm:p-6">
                   <h2 className="text-lg font-semibold text-foreground">What you can do here</h2>
                   <div className="mt-5 grid gap-4">
                     <div className="rounded-2xl bg-muted/45 p-4">
@@ -143,7 +143,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="destinations" className="border-b border-border/60 py-14 md:py-18">
+        <section id="destinations" className="border-b border-border/60 py-12 sm:py-14 md:py-18">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="max-w-2xl">
@@ -159,7 +159,7 @@ export default async function HomePage() {
               </Button>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {destinations.map((destination) => (
                 <Link
                   key={destination.city}
@@ -172,7 +172,7 @@ export default async function HomePage() {
                       alt={`${destination.city}, ${destination.region}`}
                       fill
                       className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 25vw"
+                      sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 25vw"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
                     <div className="absolute left-4 top-4 inline-flex rounded-2xl bg-background/85 p-3 text-primary shadow-sm">
@@ -197,7 +197,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="browse-experiences" className="py-16 md:py-20">
+        <section id="browse-experiences" className="py-12 sm:py-14 md:py-20">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="max-w-2xl">
@@ -217,7 +217,7 @@ export default async function HomePage() {
               </Button>
             </div>
 
-            <div className="grid auto-rows-max grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="grid auto-rows-max grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
               {browseExperiences.map((experience) => (
                 <ExperienceCard key={experience.id} experience={experience} />
               ))}
@@ -225,7 +225,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="border-y border-border/60 bg-muted/30 py-16 md:py-18">
+        <section id="how-it-works" className="border-y border-border/60 bg-muted/30 py-12 sm:py-14 md:py-18">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
@@ -253,7 +253,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="py-16 md:py-20">
+        <section className="py-12 sm:py-14 md:py-20">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mb-10 max-w-2xl">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
@@ -276,9 +276,9 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="about" className="border-t border-border/60 py-16 md:py-18">
+        <section id="about" className="border-t border-border/60 py-12 sm:py-14 md:py-18">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid gap-8 rounded-[36px] bg-primary px-6 py-10 text-primary-foreground shadow-[0_28px_80px_-44px_rgba(111,48,26,0.75)] md:grid-cols-[1.1fr_0.9fr] md:px-10">
+            <div className="grid gap-8 rounded-[28px] bg-primary px-5 py-8 text-primary-foreground shadow-[0_28px_80px_-44px_rgba(111,48,26,0.75)] sm:rounded-[36px] sm:px-6 md:grid-cols-[1.1fr_0.9fr] md:px-10 md:py-10">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary-foreground/70">
                   About AfriConnect
@@ -292,7 +292,7 @@ export default async function HomePage() {
                 </p>
               </div>
               <div className="flex flex-col justify-center gap-3">
-                <Button asChild size="lg" variant="secondary" className="rounded-full">
+                <Button asChild size="lg" variant="secondary" className="w-full rounded-full sm:w-auto">
                   <Link href="/experiences">
                     Explore Experiences
                     <ArrowRight className="h-4 w-4" />
@@ -302,7 +302,7 @@ export default async function HomePage() {
                   asChild
                   size="lg"
                   variant="outline"
-                  className="rounded-full border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  className="w-full rounded-full border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:w-auto"
                 >
                   <Link href="/quiz">
                     <Sparkles className="h-4 w-4" />

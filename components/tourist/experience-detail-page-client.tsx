@@ -158,7 +158,7 @@ export function ExperienceDetailPageClient({
           </div>
         </div>
 
-        <div className="relative h-96 w-full overflow-hidden bg-muted md:h-[540px]">
+        <div className="relative h-[300px] w-full overflow-hidden bg-muted sm:h-[380px] md:h-[540px]">
           <Image
             src={experience.image}
             alt={experience.title}
@@ -168,7 +168,7 @@ export function ExperienceDetailPageClient({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
-          <div className="absolute right-6 top-6 flex gap-2">
+          <div className="absolute right-4 top-4 flex gap-2 sm:right-6 sm:top-6">
             <Button
               variant="secondary"
               size="icon"
@@ -199,7 +199,7 @@ export function ExperienceDetailPageClient({
           </div>
         </div>
 
-        <div className="container mx-auto max-w-5xl px-4 py-8 sm:px-6 md:py-12 lg:px-8">
+        <div className="container mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8 md:py-12 lg:px-8">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
               <div>
@@ -214,25 +214,25 @@ export function ExperienceDetailPageClient({
                         score={experience.authenticity.score}
                       />
                     </div>
-                    <h1 className="mb-3 text-3xl font-bold text-foreground md:text-4xl">
+                    <h1 className="mb-3 text-2xl font-bold text-foreground sm:text-3xl md:text-4xl">
                       {experience.title}
                     </h1>
                   </div>
                 </div>
 
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <RatingBadge
                     rating={experience.rating}
                     reviewCount={experience.reviewCount}
                     size="lg"
                   />
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <div className="text-3xl font-bold text-primary">${experience.price}</div>
                     <div className="text-sm text-muted-foreground">per person</div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 border-y border-border py-4">
+                <div className="grid grid-cols-1 gap-4 border-y border-border py-4 sm:grid-cols-3">
                   <div>
                     <div className="mb-1 flex items-center gap-2 text-muted-foreground">
                       <Clock className="h-4 w-4" />
@@ -288,7 +288,7 @@ export function ExperienceDetailPageClient({
 
               <div>
                 <h2 className="mb-4 text-2xl font-bold text-foreground">About This Experience</h2>
-                <p className="text-lg leading-relaxed text-muted-foreground">
+                <p className="text-base leading-7 text-muted-foreground sm:text-lg sm:leading-relaxed">
                   {experience.description}
                 </p>
               </div>
@@ -335,7 +335,7 @@ export function ExperienceDetailPageClient({
 
               <div>
                 <h2 className="mb-4 text-2xl font-bold text-foreground">Accessibility</h2>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                   {Object.entries(experience.accessibility).map(([key, value]) => (
                     <div key={key} className="flex items-center gap-2">
                       {value ? (
@@ -362,7 +362,7 @@ export function ExperienceDetailPageClient({
 
               <div className="border-t border-border pt-8">
                 <h2 className="mb-6 text-2xl font-bold text-foreground">Your Host</h2>
-                <div className="flex gap-4 rounded-[28px] border border-border/70 bg-card p-5 shadow-sm">
+                <div className="flex flex-col gap-4 rounded-[28px] border border-border/70 bg-card p-5 shadow-sm sm:flex-row">
                   <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full bg-muted">
                     <Image
                       src={experience.operator.avatar}
@@ -376,7 +376,7 @@ export function ExperienceDetailPageClient({
                       {experience.operator.name}
                     </h3>
                     <p className="mb-3 text-sm text-muted-foreground">{experience.operator.bio}</p>
-                    <div className="flex items-center gap-4 text-sm">
+                    <div className="flex flex-wrap items-center gap-3 text-sm sm:gap-4">
                       <div>
                         <span className="font-semibold text-foreground">
                           {experience.operator.reviewCount}
@@ -399,7 +399,7 @@ export function ExperienceDetailPageClient({
             </div>
 
             <div className="lg:col-span-1">
-              <div className="sticky top-20 space-y-4">
+              <div className="space-y-4 lg:sticky lg:top-20">
                 <div className="space-y-4 rounded-[28px] border border-border/70 bg-card p-6 shadow-[0_18px_50px_-32px_rgba(38,23,16,0.45)]">
                   <div>
                     <p className="mb-1 text-sm text-muted-foreground">Starting from</p>

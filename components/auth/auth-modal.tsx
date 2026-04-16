@@ -115,7 +115,7 @@ export function AuthModal({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden border-border/70 bg-background p-0 sm:max-w-2xl">
-        <DialogHeader className="border-b border-border/70 bg-muted/40 px-6 py-5 text-left">
+        <DialogHeader className="border-b border-border/70 bg-muted/40 px-4 py-4 text-left sm:px-6 sm:py-5">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
             <Sparkles className="h-4 w-4" />
             Premium access
@@ -126,7 +126,7 @@ export function AuthModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 p-6 md:grid-cols-[0.92fr_1.08fr]">
+        <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 md:grid-cols-[0.92fr_1.08fr]">
           <Card className="rounded-3xl border-border/70 bg-primary/5 p-5 shadow-none">
             <div className="mb-4 inline-flex rounded-full bg-primary/10 p-3 text-primary">
               <ShieldCheck className="h-5 w-5" />

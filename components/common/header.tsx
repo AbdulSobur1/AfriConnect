@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useAuthRequired } from '@/components/auth/auth-required-provider'
 import { UserRole } from '@/lib/types'
 import { Compass, LogOut, Menu, Settings, Sparkles, User } from 'lucide-react'
@@ -119,19 +120,19 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-18 items-center justify-between py-3">
+        <div className="flex min-h-18 items-center justify-between py-3">
           <Link
             href="/"
-            className="flex items-center gap-3 font-bold text-xl text-primary transition-colors hover:text-primary/90"
+            className="min-w-0 flex items-center gap-3 font-bold text-xl text-primary transition-colors hover:text-primary/90"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-base text-primary-foreground shadow-sm">
               A
             </div>
-            <div className="hidden sm:block">
-              <div className="text-base font-semibold tracking-tight text-foreground">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
                 AfriConnect
               </div>
-              <div className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+              <div className="hidden text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground sm:block">
                 Curated cultural stays
               </div>
             </div>
@@ -159,7 +160,7 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
             )}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {!isOperatorPortal &&
               (isSignedIn ? (
                 <Button variant="ghost" size="sm" asChild className="hidden rounded-full sm:flex">
@@ -237,49 +238,101 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
             )}
 
             <div className="md:hidden">
-              <DropdownMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <DropdownMenuTrigger asChild>
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
                     <Menu className="h-5 w-5" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {navLinks.map((link) => (
-                    <DropdownMenuItem key={link.href} asChild>
-                      <Link href={link.href}>{link.label}</Link>
-                    </DropdownMenuItem>
-                  ))}
-                  {!isOperatorPortal && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link href="/operator/dashboard">
-                          {isSignedIn ? 'Operator Portal' : 'Host on AfriConnect'}
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[88vw] max-w-sm border-border/70 px-5">
+                  <SheetHeader className="border-b border-border/70 pb-4 text-left">
+                    <SheetTitle className="text-left">Menu</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-6 space-y-6">
+                    <nav className="space-y-2">
+                      {navLinks.map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="block rounded-2xl px-4 py-3 text-base font-medium text-foreground transition-colors hover:bg-muted"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          {link.label}
                         </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
-                  {sessionUser ? (
-                    <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
-                      {isSigningOut ? 'Logging out...' : 'Logout'}
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem
-                      onClick={() =>
-                        openAuthModal({
-                          title: 'Sign in to continue',
-                          description:
-                            'Unlock saved experiences, host messaging, and secure booking from any page.',
-                        })
-                      }
-                    >
-                      <Compass className="mr-2 h-4 w-4" />
-                      Sign In
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      ))}
+                    </nav>
+
+                    {!isOperatorPortal && (
+                      <div className="rounded-3xl border border-border/70 bg-muted/40 p-4">
+                        <p className="text-sm font-semibold text-foreground">
+                          {isSignedIn ? 'Operator tools' : 'Host on AfriConnect'}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {isSignedIn
+                            ? 'Manage your listings and bookings from the operator portal.'
+                            : 'Share your cultural experiences with travelers looking for meaningful local experiences.'}
+                        </p>
+                        <Button asChild className="mt-4 w-full rounded-full">
+                          <Link href="/operator/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                            {isSignedIn ? 'Open Operator Portal' : 'Become a Host'}
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
+
+                    {sessionUser ? (
+                      <div className="space-y-3 rounded-3xl border border-border/70 bg-card p-4">
+                        <div>
+                          <p className="font-semibold text-foreground">{effectiveName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {effectiveRole === 'operator' ? 'Operator account' : 'Traveler account'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-full"
+                          onClick={handleSignOut}
+                          disabled={isSigningOut}
+                        >
+                          {isSigningOut ? 'Logging out...' : 'Logout'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-full"
+                          onClick={() => {
+                            setMobileMenuOpen(false)
+                            openAuthModal({
+                              title: 'Sign in to continue',
+                              description:
+                                'Unlock saved experiences, host messaging, and secure booking from any page.',
+                            })
+                          }}
+                        >
+                          <Compass className="h-4 w-4" />
+                          Sign In
+                        </Button>
+                        <Button
+                          className="w-full rounded-full"
+                          onClick={() => {
+                            setMobileMenuOpen(false)
+                            openAuthModal({
+                              title: 'Create your AfriConnect session',
+                              description:
+                                'Start building a shortlist now and unlock one-click booking when you find the right experience.',
+                            })
+                          }}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Start Planning
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>

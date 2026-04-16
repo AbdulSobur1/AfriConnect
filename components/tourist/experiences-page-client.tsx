@@ -77,13 +77,13 @@ export function ExperiencesPageClient({
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
               <aside className="lg:col-span-1">
-                <div className="sticky top-20">
+                <div className="lg:sticky lg:top-20">
                   <ExperienceFilter filters={filters} onFiltersChange={setFilters} />
                 </div>
               </aside>
 
               <div className="lg:col-span-3">
-                <div className="mb-6 flex items-center justify-between gap-4">
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
                     Showing{' '}
                     <span className="font-semibold text-foreground">

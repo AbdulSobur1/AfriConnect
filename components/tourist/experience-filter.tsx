@@ -73,17 +73,13 @@ export function ExperienceFilter({ filters, onFiltersChange }: ExperienceFilterP
       </div>
 
       {/* Filter Toggle */}
-      <Button
-        variant="outline"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full"
-      >
+      <Button variant="outline" onClick={() => setIsOpen(!isOpen)} className="w-full rounded-full">
         Filters {hasActiveFilters && `(${[filters.category?.length || 0, filters.priceRange ? 1 : 0, filters.rating ? 1 : 0].reduce((a, b) => a + b)})`}
       </Button>
 
       {/* Filters Dropdown */}
       {isOpen && (
-        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
           {/* Categories */}
           <div>
             <h3 className="font-semibold text-sm mb-2 text-foreground">Type</h3>

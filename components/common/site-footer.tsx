@@ -56,7 +56,10 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <a href="mailto:hello@africonnect.com" className="transition-colors hover:text-primary">
+                <a
+                  href="mailto:hello@africonnect.com"
+                  className="transition-colors hover:text-primary"
+                >
                   Contact
                 </a>
               </li>
@@ -98,7 +101,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-10 border-t border-border/70 pt-6 text-sm text-muted-foreground">
-          <p>© 2026 AfriConnect. All rights reserved.</p>
+          <p>&copy; 2026 AfriConnect. All rights reserved.</p>
         </div>
       </div>
     </footer>

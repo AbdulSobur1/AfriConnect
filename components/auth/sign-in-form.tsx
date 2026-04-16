@@ -85,7 +85,7 @@ export function SignInForm({
         {accounts.map((account) => (
           <Card
             key={account.id}
-            className="flex items-center justify-between gap-4 rounded-2xl border-border/70 p-4 shadow-sm"
+            className="flex flex-col items-start gap-4 rounded-2xl border-border/70 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -97,6 +97,7 @@ export function SignInForm({
             <Button
               onClick={() => handleSignIn(account.id)}
               disabled={loadingUserId === account.id}
+              className="w-full sm:w-auto"
             >
               {loadingUserId === account.id ? 'Signing in...' : 'Sign In'}
             </Button>

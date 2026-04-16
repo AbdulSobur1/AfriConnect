@@ -121,13 +121,17 @@ export function ExperienceCard({ experience, featured = false }: ExperienceCardP
       }`}
     >
       <Link href={`/experiences/${experience.id}`} className="block">
-        <div className="relative h-56 overflow-hidden bg-muted md:h-64">
+        <div className="relative h-56 overflow-hidden bg-muted sm:h-60 md:h-64">
           <Image
             src={experience.image}
             alt={experience.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes={featured ? '(max-width: 768px) 100vw, 620px' : '(max-width: 768px) 100vw, 360px'}
+            sizes={
+              featured
+                ? '(max-width: 767px) 100vw, (max-width: 1279px) 50vw, 620px'
+                : '(max-width: 767px) 100vw, (max-width: 1279px) 50vw, 360px'
+            }
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
@@ -163,7 +167,7 @@ export function ExperienceCard({ experience, featured = false }: ExperienceCardP
       </Link>
 
       <div className="space-y-5 p-5 md:p-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <Link href={`/experiences/${experience.id}`} className="block">
               <h3 className="text-lg font-semibold leading-tight text-foreground transition-colors group-hover:text-primary md:text-[1.35rem]">
@@ -174,7 +178,7 @@ export function ExperienceCard({ experience, featured = false }: ExperienceCardP
               {experience.shortDescription}
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-2xl font-semibold tracking-tight text-foreground">
               ${experience.price}
             </div>
@@ -184,7 +188,7 @@ export function ExperienceCard({ experience, featured = false }: ExperienceCardP
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+        <div className="grid grid-cols-1 gap-3 rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground xs:grid-cols-2 sm:grid-cols-3">
           <div className="space-y-1">
             <div className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
@@ -208,15 +212,15 @@ export function ExperienceCard({ experience, featured = false }: ExperienceCardP
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <RatingBadge rating={experience.rating} reviewCount={experience.reviewCount} size="sm" />
           <div className="text-sm text-muted-foreground">
             Hosted by <span className="font-medium text-foreground">{experience.operator.name}</span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="outline" className="rounded-full" asChild>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button type="button" variant="outline" className="w-full rounded-full sm:w-auto" asChild>
             <Link href={`/experiences/${experience.id}`}>
               View details
               <ArrowRight className="h-4 w-4" />
@@ -225,7 +229,7 @@ export function ExperienceCard({ experience, featured = false }: ExperienceCardP
           <Button
             type="button"
             variant="ghost"
-            className="rounded-full"
+            className="w-full rounded-full sm:w-auto"
             onClick={() => void handleMessageClick()}
           >
             <MessageCircle className="h-4 w-4" />
