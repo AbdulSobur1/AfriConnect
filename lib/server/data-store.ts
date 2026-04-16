@@ -14,6 +14,7 @@ import {
   PaymentRecord,
   EmailEventRecord,
   DisputeRecord,
+  AccountSettings,
 } from '@/lib/types'
 import { mockCurrentUser, mockExperiences, mockOperators } from '@/lib/mock-data'
 
@@ -26,6 +27,7 @@ interface StoredUser {
   createdAt: string
   savedExperienceIds?: string[]
   onboardingPreferences?: OnboardingQuizResponse | null
+  accountSettings?: AccountSettings
 }
 
 interface StoredOperator extends Omit<ExperienceOperator, 'joinDate' | 'experiences'> {
@@ -69,6 +71,17 @@ interface AppData {
   payments: StoredPayment[]
   emailEvents: StoredEmailEvent[]
   disputes: StoredDispute[]
+}
+
+function getDefaultAccountSettings(): AccountSettings {
+  return {
+    marketingEmails: true,
+    bookingReminders: true,
+    smsAlerts: false,
+    language: 'en',
+    currency: 'USD',
+    profileVisibility: 'public',
+  }
 }
 
 function makeSeedExperience(experience: Experience): Experience {
@@ -147,6 +160,7 @@ function createSeedData(): AppData {
       createdAt: mockCurrentUser.createdAt.toISOString(),
       savedExperienceIds: [],
       onboardingPreferences: null,
+      accountSettings: getDefaultAccountSettings(),
     },
     ...mockOperators.map((operator) => ({
       id: operator.id,
@@ -157,6 +171,7 @@ function createSeedData(): AppData {
       createdAt: operator.joinDate.toISOString(),
       savedExperienceIds: [],
       onboardingPreferences: null,
+      accountSettings: getDefaultAccountSettings(),
     })),
     {
       id: 'admin-1',
@@ -166,6 +181,7 @@ function createSeedData(): AppData {
       createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
       savedExperienceIds: [],
       onboardingPreferences: null,
+      accountSettings: getDefaultAccountSettings(),
     },
   ]
 
@@ -230,6 +246,11 @@ function normalizeData(data: AppData) {
 
     if (!('onboardingPreferences' in user)) {
       user.onboardingPreferences = null
+      changed = true
+    }
+
+    if (!user.accountSettings) {
+      user.accountSettings = getDefaultAccountSettings()
       changed = true
     }
   }
@@ -440,6 +461,63 @@ export async function listUsersFromStore() {
 export async function getUserFromStore(id: string) {
   const data = await readAppData()
   return data.users.find((user) => user.id === id) ?? null
+}
+
+export async function updateUserProfileInStore(
+  id: string,
+  updates: {
+    name: string
+    email: string
+    avatar?: string
+    phone?: string
+    bio?: string
+  }
+) {
+  return updateAppData((data) => {
+    const user = data.users.find((item) => item.id === id)
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    user.name = updates.name
+    user.email = updates.email
+    user.avatar = updates.avatar || user.avatar
+
+    if (user.role === 'operator') {
+      const operator = data.operators.find((item) => item.id === id)
+
+      if (!operator) {
+        throw new Error('Operator profile not found')
+      }
+
+      operator.name = updates.name
+      operator.email = updates.email
+      operator.avatar = updates.avatar || operator.avatar
+      operator.phone = updates.phone || operator.phone
+      operator.bio = updates.bio || operator.bio
+    }
+
+    return user
+  })
+}
+
+export async function getAccountSettingsFromStore(id: string) {
+  const user = await getUserFromStore(id)
+  return user?.accountSettings ?? getDefaultAccountSettings()
+}
+
+export async function saveAccountSettingsToStore(id: string, settings: AccountSettings) {
+  return updateAppData((data) => {
+    const user = data.users.find((item) => item.id === id)
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    user.accountSettings = settings
+    return user.accountSettings
+  })
 }
 
 export async function getOperatorProfileFromStore(id: string) {

@@ -18,6 +18,15 @@ export interface TouristPreferences {
   mobility: 'full' | 'limited'
 }
 
+export interface AccountSettings {
+  marketingEmails: boolean
+  bookingReminders: boolean
+  smsAlerts: boolean
+  language: 'en' | 'fr'
+  currency: 'USD' | 'NGN'
+  profileVisibility: 'public' | 'private'
+}
+
 // Experience Types
 export type ExperienceCategory = 'cultural' | 'culinary' | 'craft' | 'ritual' | 'community'
 export type SubsectionType = 'direct' | 'partner'

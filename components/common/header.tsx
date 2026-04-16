@@ -43,6 +43,8 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
   const effectiveName = sessionUser?.name || userName
   const effectiveRole = sessionUser?.role || userRole
   const isSignedIn = Boolean(sessionUser)
+  const profileHref = effectiveRole === 'operator' ? '/operator/profile' : '/profile'
+  const settingsHref = effectiveRole === 'operator' ? '/operator/settings' : '/settings'
 
   useEffect(() => {
     let cancelled = false
@@ -189,13 +191,17 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
                     {effectiveName}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    {effectiveRole === 'operator' ? 'Operator Profile' : 'Profile'}
+                  <DropdownMenuItem asChild>
+                    <Link href={profileHref}>
+                      <User className="mr-2 h-4 w-4" />
+                      {effectiveRole === 'operator' ? 'Operator Profile' : 'Profile'}
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
+                  <DropdownMenuItem asChild>
+                    <Link href={settingsHref}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
@@ -288,6 +294,16 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
                             {effectiveRole === 'operator' ? 'Operator account' : 'Traveler account'}
                           </p>
                         </div>
+                        <Button asChild variant="outline" className="w-full rounded-full">
+                          <Link href={profileHref} onClick={() => setMobileMenuOpen(false)}>
+                            Profile
+                          </Link>
+                        </Button>
+                        <Button asChild variant="outline" className="w-full rounded-full">
+                          <Link href={settingsHref} onClick={() => setMobileMenuOpen(false)}>
+                            Settings
+                          </Link>
+                        </Button>
                         <Button
                           variant="outline"
                           className="w-full rounded-full"
