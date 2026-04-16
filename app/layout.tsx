@@ -5,6 +5,7 @@ import { BookingsProvider } from '@/context/bookings-context'
 import { OperatorProvider } from '@/context/operator-context'
 import { ToastProvider } from '@/context/toast-context'
 import { ToastContainer } from '@/components/common/toast-container'
+import { AuthRequiredProvider } from '@/components/auth/auth-required-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -39,15 +40,17 @@ export default function RootLayout({
     <html lang="en" className="bg-background">
       <body className="font-sans antialiased">
         <ToastProvider>
-          <QuizProvider>
-            <BookingsProvider>
-              <OperatorProvider>
-                {children}
-                <ToastContainer />
-                {process.env.NODE_ENV === 'production' && <Analytics />}
-              </OperatorProvider>
-            </BookingsProvider>
-          </QuizProvider>
+          <AuthRequiredProvider>
+            <QuizProvider>
+              <BookingsProvider>
+                <OperatorProvider>
+                  {children}
+                  <ToastContainer />
+                  {process.env.NODE_ENV === 'production' && <Analytics />}
+                </OperatorProvider>
+              </BookingsProvider>
+            </QuizProvider>
+          </AuthRequiredProvider>
         </ToastProvider>
       </body>
     </html>

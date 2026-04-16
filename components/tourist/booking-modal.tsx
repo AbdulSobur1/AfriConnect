@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -20,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Experience } from '@/lib/types'
 import { useToast } from '@/context/toast-context'
+import { useAuthRequired } from '@/components/auth/auth-required-provider'
 
 interface BookingModalProps {
   experience: Experience
@@ -34,8 +34,8 @@ export function BookingModal({
   onClose,
   onSuccess,
 }: BookingModalProps) {
-  const router = useRouter()
   const { addToast } = useToast()
+  const { openAuthModal } = useAuthRequired()
   const [bookingDate, setBookingDate] = useState('')
   const [guests, setGuests] = useState('1')
   const [isLoading, setIsLoading] = useState(false)
@@ -66,7 +66,12 @@ export function BookingModal({
       const result = (await response.json()) as { error?: string }
 
       if (response.status === 401) {
-        router.push(`/sign-in?redirectTo=${encodeURIComponent(`/experiences/${experience.id}`)}`)
+        onClose()
+        openAuthModal({
+          title: 'Book securely',
+          description:
+            'Sign in to reserve your date and keep your booking details attached to your account.',
+        })
         return
       }
 
@@ -77,7 +82,6 @@ export function BookingModal({
       addToast(`Booking confirmed for ${experience.title}!`, 'success')
       onClose()
       onSuccess?.()
-      router.refresh()
     } catch (error) {
       addToast(
         error instanceof Error ? error.message : 'Unable to create booking right now.',

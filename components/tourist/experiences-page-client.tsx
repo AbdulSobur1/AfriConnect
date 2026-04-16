@@ -49,15 +49,19 @@ export function ExperiencesPageClient({ experiences }: ExperiencesPageClientProp
       <Header userRole="tourist" userName="Sarah Johnson" />
 
       <main className="min-h-screen bg-background">
-        <section className="bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 py-12 md:py-20">
+        <section className="border-b border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(190,89,48,0.14),transparent_35%),linear-gradient(180deg,rgba(254,248,240,0.96),rgba(250,243,233,0.84))] py-12 md:py-20">
           <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mb-8 text-center">
-              <h1 className="mb-4 text-4xl font-bold text-foreground md:text-5xl">
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.22em] text-primary">
+                Browse openly
+              </p>
+              <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground md:text-5xl">
                 Discover Authentic African Experiences
               </h1>
-              <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+              <p className="mx-auto max-w-3xl text-lg leading-8 text-muted-foreground">
                 Connect with local communities and master artisans. Immerse yourself in cultural
-                traditions, culinary arts, and timeless practices.
+                traditions, culinary arts, and timeless practices, then sign in only when you want
+                to save, message, or book.
               </p>
             </div>
           </div>
@@ -73,13 +77,16 @@ export function ExperiencesPageClient({ experiences }: ExperiencesPageClientProp
               </aside>
 
               <div className="lg:col-span-3">
-                <div className="mb-6">
+                <div className="mb-6 flex items-center justify-between gap-4">
                   <p className="text-sm text-muted-foreground">
                     Showing{' '}
                     <span className="font-semibold text-foreground">
                       {filteredExperiences.length}
                     </span>{' '}
                     experiences
+                  </p>
+                  <p className="hidden text-sm text-muted-foreground md:block">
+                    Verified hosts, authenticity badges, and clear booking signals on every listing
                   </p>
                 </div>
 

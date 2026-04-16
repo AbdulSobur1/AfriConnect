@@ -16,7 +16,10 @@ interface SignInOption {
 
 interface SignInFormProps {
   accounts: SignInOption[]
-  redirectTo: string
+  redirectTo?: string
+  title?: string
+  description?: string
+  onSuccess?: () => Promise<void> | void
 }
 
 const roleLabels: Record<UserRole, string> = {
@@ -25,7 +28,13 @@ const roleLabels: Record<UserRole, string> = {
   admin: 'Admin',
 }
 
-export function SignInForm({ accounts, redirectTo }: SignInFormProps) {
+export function SignInForm({
+  accounts,
+  redirectTo = '/',
+  title = 'Access AfriConnect',
+  description = 'Sign in to manage bookings, access operator tools, and continue building the platform.',
+  onSuccess,
+}: SignInFormProps) {
   const router = useRouter()
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +58,7 @@ export function SignInForm({ accounts, redirectTo }: SignInFormProps) {
         throw new Error(result.error || 'Unable to sign in')
       }
 
+      await onSuccess?.()
       router.push(redirectTo)
       router.refresh()
     } catch (err) {
@@ -61,10 +71,8 @@ export function SignInForm({ accounts, redirectTo }: SignInFormProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold text-foreground">Access AfriConnect</h1>
-        <p className="text-muted-foreground">
-          Sign in to manage bookings, access operator tools, and continue building the platform.
-        </p>
+        <h1 className="text-3xl font-bold text-foreground">{title}</h1>
+        <p className="text-muted-foreground">{description}</p>
       </div>
 
       {error && (
@@ -75,7 +83,10 @@ export function SignInForm({ accounts, redirectTo }: SignInFormProps) {
 
       <div className="space-y-4">
         {accounts.map((account) => (
-          <Card key={account.id} className="flex items-center justify-between gap-4 p-4">
+          <Card
+            key={account.id}
+            className="flex items-center justify-between gap-4 rounded-2xl border-border/70 p-4 shadow-sm"
+          >
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-foreground">{account.name}</p>

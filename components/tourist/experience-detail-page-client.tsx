@@ -1,7 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
+import {
+  CalendarCheck,
+  Check,
+  Clock,
+  Heart,
+  MapPin,
+  MessageCircle,
+  Share2,
+  ShieldCheck,
+  Users,
+  X,
+} from 'lucide-react'
 import { Header } from '@/components/common/header'
 import { RatingBadge } from '@/components/tourist/rating-badge'
 import { AuthenticityBadge } from '@/components/tourist/authenticity-badge'
@@ -11,9 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Experience } from '@/lib/types'
 import { useToast } from '@/context/toast-context'
-import Image from 'next/image'
-import Link from 'next/link'
-import { MapPin, Clock, Users, Heart, Share2, Check, X } from 'lucide-react'
+import { useAuthRequired } from '@/components/auth/auth-required-provider'
 
 interface ExperienceDetailPageClientProps {
   experience: Experience
@@ -22,8 +33,8 @@ interface ExperienceDetailPageClientProps {
 export function ExperienceDetailPageClient({
   experience,
 }: ExperienceDetailPageClientProps) {
-  const router = useRouter()
   const { addToast } = useToast()
+  const { ensureSignedIn } = useAuthRequired()
   const [isSaved, setIsSaved] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [isSaveLoading, setIsSaveLoading] = useState(false)
@@ -77,28 +88,57 @@ export function ExperienceDetailPageClient({
         method: isSaved ? 'DELETE' : 'POST',
       })
 
-      if (response.status === 401) {
-        router.push(`/sign-in?redirectTo=${encodeURIComponent(`/experiences/${experience.id}`)}`)
-        return
-      }
-
       const result = (await response.json()) as { error?: string; saved?: boolean }
 
       if (!response.ok) {
         throw new Error(result.error || 'Unable to update saved experience')
       }
 
-      setIsSaved(!isSaved)
+      setIsSaved(Boolean(result.saved))
       addToast(
-        !isSaved ? 'Experience saved to your list.' : 'Experience removed from your saved list.',
+        result.saved ? 'Experience saved to your list.' : 'Experience removed from your saved list.',
         'success'
       )
-      router.refresh()
     } catch (error) {
       addToast(error instanceof Error ? error.message : 'Unable to update saved list.', 'error')
     } finally {
       setIsSaveLoading(false)
     }
+  }
+
+  async function handleSaveClick() {
+    await ensureSignedIn(
+      {
+        title: 'Save this experience',
+        description:
+          'Sign in to build your shortlist and come back to verified experiences when you are ready to book.',
+      },
+      handleSaveToggle
+    )
+  }
+
+  async function handleBookClick() {
+    await ensureSignedIn(
+      {
+        title: 'Book securely',
+        description:
+          'Sign in to reserve your date, manage your itinerary, and keep booking details in one place.',
+      },
+      async () => setShowBookingModal(true)
+    )
+  }
+
+  async function handleMessageClick() {
+    await ensureSignedIn(
+      {
+        title: 'Message this host',
+        description:
+          'Sign in to ask questions about timing, accessibility, and group details before you book.',
+      },
+      async () => {
+        window.location.href = `mailto:${experience.operator.email}?subject=${encodeURIComponent(`Question about ${experience.title}`)}`
+      }
+    )
   }
 
   return (
@@ -118,7 +158,7 @@ export function ExperienceDetailPageClient({
           </div>
         </div>
 
-        <div className="relative h-96 w-full overflow-hidden bg-muted md:h-[500px]">
+        <div className="relative h-96 w-full overflow-hidden bg-muted md:h-[540px]">
           <Image
             src={experience.image}
             alt={experience.title}
@@ -132,15 +172,30 @@ export function ExperienceDetailPageClient({
             <Button
               variant="secondary"
               size="icon"
-              onClick={handleSaveToggle}
+              onClick={() => void handleSaveClick()}
               disabled={isSaveLoading}
-              className="rounded-full"
+              className="rounded-full bg-background/90"
             >
               <Heart className={`h-5 w-5 ${isSaved ? 'fill-current' : ''}`} />
             </Button>
-            <Button variant="secondary" size="icon" className="rounded-full">
+            <Button variant="secondary" size="icon" className="rounded-full bg-background/90">
               <Share2 className="h-5 w-5" />
             </Button>
+          </div>
+
+          <div className="absolute bottom-6 left-6 right-6 hidden md:block">
+            <div className="inline-flex flex-wrap items-center gap-3 rounded-full bg-background/88 px-5 py-3 shadow-lg backdrop-blur">
+              <Badge className="rounded-full bg-primary px-3 py-1 text-primary-foreground">
+                Premium cultural stay
+              </Badge>
+              <span className="text-sm text-muted-foreground">Verified host</span>
+              <span className="text-sm text-muted-foreground">
+                Flexible small-group format
+              </span>
+              <span className="text-sm text-muted-foreground">
+                Secure checkout after sign-in
+              </span>
+            </div>
           </div>
         </div>
 
@@ -200,6 +255,33 @@ export function ExperienceDetailPageClient({
                       <span className="text-xs uppercase tracking-wide">Location</span>
                     </div>
                     <p className="font-semibold text-foreground">{experience.location.city}</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-border/70 bg-card p-4">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                    <h3 className="mt-3 font-semibold text-foreground">Verified trust layer</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Host identity, authenticity scoring, and cultural review are surfaced before
+                      you commit.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-card p-4">
+                    <CalendarCheck className="h-5 w-5 text-primary" />
+                    <h3 className="mt-3 font-semibold text-foreground">Flexible planning</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Browse availability openly, then secure your preferred date only when you are
+                      ready.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-card p-4">
+                    <MessageCircle className="h-5 w-5 text-primary" />
+                    <h3 className="mt-3 font-semibold text-foreground">Direct host access</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Ask questions before checkout with privacy-preserving sign-in prompts on
+                      demand.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -280,7 +362,7 @@ export function ExperienceDetailPageClient({
 
               <div className="border-t border-border pt-8">
                 <h2 className="mb-6 text-2xl font-bold text-foreground">Your Host</h2>
-                <div className="flex gap-4">
+                <div className="flex gap-4 rounded-[28px] border border-border/70 bg-card p-5 shadow-sm">
                   <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full bg-muted">
                     <Image
                       src={experience.operator.avatar}
@@ -318,11 +400,19 @@ export function ExperienceDetailPageClient({
 
             <div className="lg:col-span-1">
               <div className="sticky top-20 space-y-4">
-                <div className="space-y-4 rounded-lg border border-border bg-card p-6">
+                <div className="space-y-4 rounded-[28px] border border-border/70 bg-card p-6 shadow-[0_18px_50px_-32px_rgba(38,23,16,0.45)]">
                   <div>
-                    <p className="mb-1 text-sm text-muted-foreground">Price</p>
+                    <p className="mb-1 text-sm text-muted-foreground">Starting from</p>
                     <p className="text-3xl font-bold text-primary">${experience.price}</p>
                     <p className="text-xs text-muted-foreground">per person</p>
+                  </div>
+
+                  <div className="rounded-2xl bg-muted/60 p-4">
+                    <p className="text-sm font-semibold text-foreground">What happens next</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Browse dates openly. Booking, saving, and host messaging ask for a quick
+                      sign-in, then resume exactly where you left off.
+                    </p>
                   </div>
 
                   <div className="border-t border-border pt-4">
@@ -351,9 +441,19 @@ export function ExperienceDetailPageClient({
                   <Button
                     size="lg"
                     className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                    onClick={() => setShowBookingModal(true)}
+                    onClick={() => void handleBookClick()}
                   >
                     Book Experience
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => void handleMessageClick()}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Message Host
                   </Button>
                 </div>
 
