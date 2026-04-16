@@ -1,4 +1,5 @@
 import { Header } from '@/components/common/header'
+import { BackButton } from '@/components/common/back-button'
 import { DashboardStats } from '@/components/operator/dashboard-stats'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -49,6 +50,7 @@ export default async function OperatorDashboardPage() {
 
       <main className="min-h-screen bg-background">
         <div className="container mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <BackButton fallbackHref="/" />
           <div className="mb-12">
             <div className="mb-8 flex items-center justify-between">
               <div>

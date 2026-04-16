@@ -17,6 +17,7 @@ import {
   AccountSettings,
 } from '@/lib/types'
 import { mockCurrentUser, mockExperiences, mockOperators } from '@/lib/mock-data'
+import { hashPassword } from '@/lib/server/password'
 
 interface StoredUser {
   id: string
@@ -28,6 +29,7 @@ interface StoredUser {
   savedExperienceIds?: string[]
   onboardingPreferences?: OnboardingQuizResponse | null
   accountSettings?: AccountSettings
+  passwordHash?: string
 }
 
 interface StoredOperator extends Omit<ExperienceOperator, 'joinDate' | 'experiences'> {
@@ -161,6 +163,7 @@ function createSeedData(): AppData {
       savedExperienceIds: [],
       onboardingPreferences: null,
       accountSettings: getDefaultAccountSettings(),
+      passwordHash: undefined,
     },
     ...mockOperators.map((operator) => ({
       id: operator.id,
@@ -172,6 +175,7 @@ function createSeedData(): AppData {
       savedExperienceIds: [],
       onboardingPreferences: null,
       accountSettings: getDefaultAccountSettings(),
+      passwordHash: undefined,
     })),
     {
       id: 'admin-1',
@@ -182,6 +186,7 @@ function createSeedData(): AppData {
       savedExperienceIds: [],
       onboardingPreferences: null,
       accountSettings: getDefaultAccountSettings(),
+      passwordHash: undefined,
     },
   ]
 
@@ -499,6 +504,61 @@ export async function updateUserProfileInStore(
     }
 
     return user
+  })
+}
+
+export async function findUserByEmailFromStore(email: string) {
+  const data = await readAppData()
+  return data.users.find((user) => user.email.toLowerCase() === email.toLowerCase()) ?? null
+}
+
+export async function createUserInStore(input: {
+  name: string
+  email: string
+  password: string
+  role: 'tourist' | 'operator'
+}) {
+  return updateAppData((data) => {
+    const existing = data.users.find(
+      (user) => user.email.toLowerCase() === input.email.toLowerCase()
+    )
+
+    if (existing) {
+      throw new Error('An account with that email already exists')
+    }
+
+    const userId = `${input.role}-${Date.now()}`
+    const createdAt = new Date().toISOString()
+
+    data.users.push({
+      id: userId,
+      name: input.name,
+      email: input.email,
+      role: input.role,
+      avatar: `https://i.pravatar.cc/300?u=${encodeURIComponent(input.email)}`,
+      createdAt,
+      savedExperienceIds: [],
+      onboardingPreferences: null,
+      accountSettings: getDefaultAccountSettings(),
+      passwordHash: hashPassword(input.password),
+    })
+
+    if (input.role === 'operator') {
+      data.operators.push({
+        id: userId,
+        name: input.name,
+        email: input.email,
+        phone: '',
+        bio: 'New operator on AfriConnect.',
+        avatar: `https://i.pravatar.cc/300?u=${encodeURIComponent(input.email)}`,
+        rating: 0,
+        reviewCount: 0,
+        joinDate: createdAt,
+        verificationStatus: 'pending',
+      })
+    }
+
+    return data.users[data.users.length - 1]
   })
 }
 

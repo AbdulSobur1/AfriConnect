@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { BackButton } from '@/components/common/back-button'
 import { Header } from '@/components/common/header'
 import { Button } from '@/components/ui/button'
 import { Empty } from '@/components/ui/empty'
@@ -24,6 +25,7 @@ export function TouristBookingsPageClient({
 
       <main className="min-h-screen bg-background">
         <div className="container mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+          <BackButton fallbackHref="/" />
           <h1 className="mb-8 text-4xl font-bold text-foreground">My Bookings</h1>
 
           {bookings.length === 0 ? (

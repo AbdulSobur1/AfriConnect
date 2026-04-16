@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { BackButton } from '@/components/common/back-button'
 import { Header } from '@/components/common/header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -71,6 +72,7 @@ export function ProfilePageClient({ profile }: ProfilePageClientProps) {
 
       <main className="min-h-screen bg-background">
         <div className="container mx-auto max-w-5xl px-4 py-8 sm:px-6 md:py-12 lg:px-8">
+          <BackButton fallbackHref={profile.role === 'operator' ? '/operator/dashboard' : '/'} />
           <div className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
               {profile.role === 'operator' ? 'Operator profile' : 'Traveler profile'}

@@ -1,5 +1,6 @@
 import { requireRole } from '@/lib/server/auth'
 import { AdminConsoleClient } from '@/components/admin/admin-console-client'
+import { BackButton } from '@/components/common/back-button'
 import { getAdminModerationData } from '@/lib/server/marketplace'
 
 export default async function AdminPage() {
@@ -9,6 +10,7 @@ export default async function AdminPage() {
   return (
     <main className="min-h-screen bg-background px-4 py-12">
       <div className="mx-auto max-w-6xl space-y-8">
+        <BackButton fallbackHref="/" />
         <div>
           <h1 className="text-4xl font-bold text-foreground">Admin Console</h1>
           <p className="mt-2 text-muted-foreground">

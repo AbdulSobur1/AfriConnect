@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
+import { BackButton } from '@/components/common/back-button'
 import { Card } from '@/components/ui/card'
 import { SignInForm } from '@/components/auth/sign-in-form'
 import { getCurrentSession, getRoleHomePath } from '@/lib/server/auth'
-import { listUsersFromStore } from '@/lib/server/data-store'
 
 export default async function SignInPage({
   searchParams,
@@ -17,21 +17,19 @@ export default async function SignInPage({
 
   const params = await searchParams
   const redirectTo = params.redirectTo || '/'
-  const users = await listUsersFromStore()
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <Card className="w-full max-w-3xl p-8">
-        <SignInForm
-          redirectTo={redirectTo}
-          accounts={users.map((user) => ({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          }))}
-        />
-      </Card>
+      <div className="w-full max-w-3xl space-y-4">
+        <BackButton fallbackHref="/" />
+        <Card className="w-full p-8">
+          <SignInForm
+            redirectTo={redirectTo}
+            title="Access AfriConnect"
+            description="Sign in to your account or create one to book, save, and manage cultural experiences."
+          />
+        </Card>
+      </div>
     </main>
   )
 }

@@ -4,44 +4,53 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { UserRole } from '@/lib/types'
-
-interface SignInOption {
-  id: string
-  name: string
-  email: string
-  role: UserRole
-}
 
 interface SignInFormProps {
-  accounts: SignInOption[]
   redirectTo?: string
   title?: string
   description?: string
   onSuccess?: () => Promise<void> | void
 }
 
-const roleLabels: Record<UserRole, string> = {
-  tourist: 'Tourist',
-  operator: 'Operator',
-  admin: 'Admin',
-}
+type AuthMode = 'sign-in' | 'sign-up'
+type AccountRole = 'tourist' | 'operator'
 
 export function SignInForm({
-  accounts,
   redirectTo = '/',
-  title = 'Access AfriConnect',
-  description = 'Sign in to manage bookings, access operator tools, and continue building the platform.',
+  title = 'Welcome to AfriConnect',
+  description = 'Sign in to manage bookings, save experiences, and message hosts. New here? Create an account in a minute.',
   onSuccess,
 }: SignInFormProps) {
   const router = useRouter()
-  const [loadingUserId, setLoadingUserId] = useState<string | null>(null)
+  const [mode, setMode] = useState<AuthMode>('sign-in')
+  const [role, setRole] = useState<AccountRole>('tourist')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleSignIn(userId: string) {
-    setLoadingUserId(userId)
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
     setError(null)
+
+    if (mode === 'sign-up') {
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.')
+        return
+      }
+
+      if (name.trim().length < 2) {
+        setError('Please enter your full name.')
+        return
+      }
+    }
+
+    setIsLoading(true)
 
     try {
       const response = await fetch('/api/auth/session', {
@@ -49,30 +58,62 @@ export function SignInForm({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify(
+          mode === 'sign-in'
+            ? {
+                mode: 'sign-in',
+                email,
+                password,
+              }
+            : {
+                mode: 'sign-up',
+                name,
+                email,
+                password,
+                role,
+              }
+        ),
       })
 
       const result = (await response.json()) as { error?: string }
 
       if (!response.ok) {
-        throw new Error(result.error || 'Unable to sign in')
+        throw new Error(result.error || 'Unable to continue')
       }
 
       await onSuccess?.()
       router.push(redirectTo)
       router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to sign in right now.')
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to continue right now.')
     } finally {
-      setLoadingUserId(null)
+      setIsLoading(false)
     }
   }
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2 text-center">
+      <div className="space-y-3 text-center">
         <h1 className="text-3xl font-bold text-foreground">{title}</h1>
         <p className="text-muted-foreground">{description}</p>
+        <div className="flex justify-center gap-2">
+          <Button
+            type="button"
+            variant={mode === 'sign-in' ? 'default' : 'outline'}
+            className="rounded-full"
+            onClick={() => setMode('sign-in')}
+          >
+            Sign In
+          </Button>
+          <Button
+            type="button"
+            variant={mode === 'sign-up' ? 'default' : 'outline'}
+            className="rounded-full"
+            onClick={() => setMode('sign-up')}
+          >
+            Create Account
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -81,29 +122,89 @@ export function SignInForm({
         </Card>
       )}
 
-      <div className="space-y-4">
-        {accounts.map((account) => (
-          <Card
-            key={account.id}
-            className="flex flex-col items-start gap-4 rounded-2xl border-border/70 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <p className="font-semibold text-foreground">{account.name}</p>
-                <Badge variant="outline">{roleLabels[account.role]}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">{account.email}</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {mode === 'sign-up' && (
+          <>
+            <div className="grid gap-2">
+              <Label htmlFor="name">Full name</Label>
+              <Input id="name" value={name} onChange={(event) => setName(event.target.value)} />
             </div>
-            <Button
-              onClick={() => handleSignIn(account.id)}
-              disabled={loadingUserId === account.id}
-              className="w-full sm:w-auto"
-            >
-              {loadingUserId === account.id ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </Card>
-        ))}
-      </div>
+
+            <div className="grid gap-2">
+              <Label>Account type</Label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                    role === 'tourist'
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground'
+                  }`}
+                  onClick={() => setRole('tourist')}
+                >
+                  Traveler
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                    role === 'operator'
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground'
+                  }`}
+                  onClick={() => setRole('operator')}
+                >
+                  Host
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{role === 'tourist' ? 'Book and save experiences' : 'List and manage experiences'}</Badge>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email address</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </div>
+
+        {mode === 'sign-up' && (
+          <div className="grid gap-2">
+            <Label htmlFor="confirm-password">Confirm password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+          </div>
+        )}
+
+        <Button type="submit" className="w-full rounded-full" disabled={isLoading}>
+          {isLoading
+            ? mode === 'sign-in'
+              ? 'Signing in...'
+              : 'Creating account...'
+            : mode === 'sign-in'
+              ? 'Sign In'
+              : 'Create Account'}
+        </Button>
+      </form>
     </div>
   )
 }

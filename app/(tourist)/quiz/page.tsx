@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { BackButton } from '@/components/common/back-button'
 import { Header } from '@/components/common/header'
 import { Button } from '@/components/ui/button'
 import { OnboardingQuizResponse } from '@/lib/types'
@@ -129,6 +130,7 @@ export default function QuizPage() {
 
       <main className="min-h-screen bg-background">
         <div className="container mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8 md:py-20">
+          <BackButton fallbackHref="/" />
           <div className="mb-12">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-foreground">Find Your Perfect Experience</h2>

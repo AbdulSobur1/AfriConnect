@@ -1,4 +1,5 @@
 import { Header } from '@/components/common/header'
+import { BackButton } from '@/components/common/back-button'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +20,7 @@ export default async function OperatorExperiencesPage() {
 
       <main className="min-h-screen bg-background">
         <div className="container mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <BackButton fallbackHref="/operator/dashboard" />
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold text-foreground">My Experiences</h1>

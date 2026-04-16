@@ -15,6 +15,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { BackButton } from '@/components/common/back-button'
 import { Header } from '@/components/common/header'
 import { RatingBadge } from '@/components/tourist/rating-badge'
 import { AuthenticityBadge } from '@/components/tourist/authenticity-badge'
@@ -200,6 +201,7 @@ export function ExperienceDetailPageClient({
         </div>
 
         <div className="container mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8 md:py-12 lg:px-8">
+          <BackButton fallbackHref="/experiences" />
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
               <div>
