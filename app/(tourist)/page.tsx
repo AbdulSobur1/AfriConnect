@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   ArrowRight,
   Compass,
@@ -28,6 +29,8 @@ export default async function HomePage() {
           city: experience.location.city,
           region: experience.location.region,
           count: experiences.filter((item) => item.location.city === experience.location.city).length,
+          image: experience.image,
+          highlight: experience.title,
         },
       ])
     ).values()
@@ -161,16 +164,33 @@ export default async function HomePage() {
                 <Link
                   key={destination.city}
                   href={`/experiences?search=${encodeURIComponent(destination.city)}`}
-                  className="rounded-[28px] border border-border/70 bg-card p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30"
+                  className="overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30"
                 >
-                  <div className="inline-flex rounded-2xl bg-primary/8 p-3 text-primary">
-                    <MapPin className="h-5 w-5" />
+                  <div className="relative h-48 bg-muted">
+                    <Image
+                      src={destination.image}
+                      alt={`${destination.city}, ${destination.region}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 25vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    <div className="absolute left-4 top-4 inline-flex rounded-2xl bg-background/85 p-3 text-primary shadow-sm">
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <h3 className="text-xl font-semibold text-white">{destination.city}</h3>
+                      <p className="mt-1 text-sm text-white/80">{destination.region}</p>
+                    </div>
                   </div>
-                  <h3 className="mt-5 text-xl font-semibold text-foreground">{destination.city}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{destination.region}</p>
-                  <p className="mt-4 text-sm text-muted-foreground">
-                    Browse cultural experiences hosted in and around {destination.city}.
-                  </p>
+                  <div className="p-5">
+                    <p className="text-sm text-muted-foreground">
+                      Browse cultural experiences hosted in and around {destination.city}.
+                    </p>
+                    <p className="mt-4 text-sm font-medium text-foreground">
+                      Featured listing: {destination.highlight}
+                    </p>
+                  </div>
                 </Link>
               ))}
             </div>
