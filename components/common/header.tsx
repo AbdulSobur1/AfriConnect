@@ -38,6 +38,7 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
   const { sessionUser, setSessionUser, openAuthModal } = useAuthRequired()
 
   const isOperatorPortal = pathname.includes('/operator')
+  const isHomePage = pathname === '/'
   const effectiveName = sessionUser?.name || userName
   const effectiveRole = sessionUser?.role || userRole
   const isSignedIn = Boolean(sessionUser)
@@ -96,6 +97,13 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
         { label: 'Experiences', href: '/operator/experiences' },
         { label: 'Bookings', href: '/operator/bookings' },
       ]
+    : isHomePage
+      ? [
+          { label: 'Destinations', href: '/#destinations' },
+          { label: 'Experiences', href: '/#browse-experiences' },
+          { label: 'How It Works', href: '/#how-it-works' },
+          { label: 'About', href: '/#about' },
+        ]
     : isSignedIn
       ? [
           { label: 'Explore', href: '/experiences' },
@@ -141,7 +149,7 @@ export function Header({ userRole = 'tourist', userName = 'User' }: HeaderProps)
                 {link.label}
               </Link>
             ))}
-            {!isOperatorPortal && !isSignedIn && (
+            {!isOperatorPortal && !isSignedIn && !isHomePage && (
               <Badge
                 variant="outline"
                 className="rounded-full border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary"

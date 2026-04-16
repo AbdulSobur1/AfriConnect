@@ -8,10 +8,16 @@ import { Experience, ExperienceFilters } from '@/lib/types'
 
 interface ExperiencesPageClientProps {
   experiences: Experience[]
+  initialSearch?: string
 }
 
-export function ExperiencesPageClient({ experiences }: ExperiencesPageClientProps) {
-  const [filters, setFilters] = useState<ExperienceFilters>({})
+export function ExperiencesPageClient({
+  experiences,
+  initialSearch = '',
+}: ExperiencesPageClientProps) {
+  const [filters, setFilters] = useState<ExperienceFilters>(() =>
+    initialSearch ? { search: initialSearch } : {}
+  )
 
   const filteredExperiences = useMemo(() => {
     return experiences.filter((exp) => {
