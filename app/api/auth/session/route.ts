@@ -34,9 +34,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    enforceRateLimit(request, 'auth-session-create', { windowMs: 60_000, maxRequests: 12 })
-
     const payload = authSchema.parse(await request.json())
+    await enforceRateLimit(
+      request,
+      'auth-session-create',
+      { windowMs: 60_000, maxRequests: 12 },
+      {
+        keyParts: ['email' in payload ? payload.email : undefined, payload.mode],
+      }
+    )
+
     const user =
       payload.mode === 'sign-up'
         ? await createUserInStore({

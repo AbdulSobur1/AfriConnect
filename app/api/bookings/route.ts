@@ -53,10 +53,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    enforceRateLimit(request, 'booking-create', { windowMs: 60_000, maxRequests: 6 }, session.userId)
-
     const json = await request.json()
     const input = createBookingSchema.parse(json)
+    await enforceRateLimit(
+      request,
+      'booking-create',
+      { windowMs: 60_000, maxRequests: 6 },
+      {
+        actorId: session.userId,
+        keyParts: [input.experienceId],
+      }
+    )
     const booking = await createBooking(input, session.userId)
 
     return NextResponse.json({ booking }, { status: 201 })

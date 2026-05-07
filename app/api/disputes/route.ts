@@ -21,9 +21,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    enforceRateLimit(request, 'dispute-create', { windowMs: 60_000, maxRequests: 4 }, session.userId)
-
     const payload = payloadSchema.parse(await request.json())
+    await enforceRateLimit(
+      request,
+      'dispute-create',
+      { windowMs: 60_000, maxRequests: 4 },
+      {
+        actorId: session.userId,
+        keyParts: [payload.bookingId],
+      }
+    )
     const booking = await createBookingDispute(payload.bookingId, session.userId, payload.reason)
 
     return NextResponse.json({ booking }, { status: 201 })
