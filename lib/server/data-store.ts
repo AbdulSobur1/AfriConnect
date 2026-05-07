@@ -104,6 +104,24 @@ function getSeedAdminPasswordHash() {
   return password ? hashPassword(password) : undefined
 }
 
+async function ensureSeedAdminPassword() {
+  const passwordHash = getSeedAdminPasswordHash()
+
+  if (!passwordHash || !hasDatabaseUrl()) {
+    return
+  }
+
+  await prisma.user.updateMany({
+    where: {
+      email: 'admin@africonnect.com',
+      OR: [{ passwordHash: null }, { passwordHash: '' }],
+    },
+    data: {
+      passwordHash,
+    },
+  })
+}
+
 function makeSeedExperience(experience: Experience): Experience {
   return {
     ...experience,
@@ -765,6 +783,7 @@ async function ensureRelationalData() {
 export async function readAppData(): Promise<AppData> {
   if (hasDatabaseUrl()) {
     await ensureRelationalData()
+    await ensureSeedAdminPassword()
     return readRelationalAppData()
   }
 
