@@ -257,18 +257,14 @@ async function ensureDataFile() {
 }
 
 async function ensureDatabaseState() {
-  const existing = await prisma.appState.findUnique({
+  await prisma.appState.upsert({
     where: { id: APP_STATE_ID },
+    update: {},
+    create: {
+      id: APP_STATE_ID,
+      payload: toPrismaJson(createSeedData()),
+    },
   })
-
-  if (!existing) {
-    await prisma.appState.create({
-      data: {
-        id: APP_STATE_ID,
-        payload: toPrismaJson(createSeedData()),
-      },
-    })
-  }
 }
 
 function normalizeData(data: AppData) {
