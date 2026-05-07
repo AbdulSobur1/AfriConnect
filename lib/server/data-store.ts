@@ -38,7 +38,8 @@ interface StoredOperator extends Omit<ExperienceOperator, 'joinDate' | 'experien
   joinDate: string
 }
 
-interface StoredExperience extends Omit<Experience, 'operator' | 'createdAt' | 'updatedAt' | 'availability'> {
+interface StoredExperience
+  extends Omit<Experience, 'operator' | 'createdAt' | 'updatedAt' | 'availability'> {
   createdAt: string
   updatedAt: string
   availability: Array<
@@ -77,13 +78,15 @@ interface AppData {
   disputes: StoredDispute[]
 }
 
-function toPrismaJson(data: AppData): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(data)) as Prisma.InputJsonValue
-}
+const DATA_DIR = path.join(process.cwd(), 'data')
+const DATA_FILE = path.join(DATA_DIR, 'app-data.json')
+const APP_STATE_ID = 'main'
+const RELATIONAL_BOOTSTRAP_LOCK_ID = 'relational-bootstrap-lock'
 
-function fromPrismaJson(value: Prisma.JsonValue): AppData {
-  return value as unknown as AppData
-}
+const DEFAULT_OPERATOR_ID = mockOperators[0].id
+const DEFAULT_TOURIST_ID = mockCurrentUser.id
+
+let writeQueue: Promise<unknown> = Promise.resolve()
 
 function getDefaultAccountSettings(): AccountSettings {
   return {
@@ -108,15 +111,6 @@ function makeSeedExperience(experience: Experience): Experience {
     adminNotes: 'Seeded approved experience',
   }
 }
-
-const DATA_DIR = path.join(process.cwd(), 'data')
-const DATA_FILE = path.join(DATA_DIR, 'app-data.json')
-const APP_STATE_ID = 'main'
-
-const DEFAULT_OPERATOR_ID = mockOperators[0].id
-const DEFAULT_TOURIST_ID = mockCurrentUser.id
-
-let writeQueue: Promise<unknown> = Promise.resolve()
 
 function serializeExperience(experience: Experience): StoredExperience {
   const { operator: _operator, ...rest } = experience
@@ -198,6 +192,7 @@ function createSeedData(): AppData {
       name: 'AfriConnect Admin',
       email: 'admin@africonnect.com',
       role: 'admin',
+      avatar: undefined,
       createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
       savedExperienceIds: [],
       onboardingPreferences: null,
@@ -246,6 +241,27 @@ function createSeedData(): AppData {
   }
 }
 
+function toPrismaJson(data: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(data)) as Prisma.InputJsonValue
+}
+
+function fromPrismaJson<T>(value: Prisma.JsonValue | null | undefined): T | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  return value as unknown as T
+}
+
+function isPrismaKnownError(error: unknown, code: string) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === code
+  )
+}
+
 async function ensureDataFile() {
   await mkdir(DATA_DIR, { recursive: true })
 
@@ -254,17 +270,6 @@ async function ensureDataFile() {
   } catch {
     await writeFile(DATA_FILE, JSON.stringify(createSeedData(), null, 2), 'utf8')
   }
-}
-
-async function ensureDatabaseState() {
-  await prisma.appState.upsert({
-    where: { id: APP_STATE_ID },
-    update: {},
-    create: {
-      id: APP_STATE_ID,
-      payload: toPrismaJson(createSeedData()),
-    },
-  })
 }
 
 function normalizeData(data: AppData) {
@@ -328,25 +333,439 @@ function normalizeData(data: AppData) {
   return { data, changed }
 }
 
-export async function readAppData(): Promise<AppData> {
-  if (hasDatabaseUrl()) {
-    await ensureDatabaseState()
-    const record = await prisma.appState.findUniqueOrThrow({
-      where: { id: APP_STATE_ID },
-    })
-    const parsed = fromPrismaJson(record.payload)
-    const normalized = normalizeData(parsed)
+async function readLegacyAppStateFromDatabase() {
+  const record = await prisma.appState.findUnique({
+    where: { id: APP_STATE_ID },
+  })
 
-    if (normalized.changed) {
-      await prisma.appState.update({
-        where: { id: APP_STATE_ID },
-        data: {
-          payload: toPrismaJson(normalized.data),
-        },
+  if (!record) {
+    return null
+  }
+
+  const parsed = fromPrismaJson<AppData>(record.payload)
+  return parsed ? normalizeData(parsed).data : null
+}
+
+async function readRelationalAppData(): Promise<AppData> {
+  const [
+    users,
+    operatorProfiles,
+    experiences,
+    availabilitySlots,
+    bookings,
+    payments,
+    emailEvents,
+    disputes,
+    savedExperiences,
+  ] = await Promise.all([
+    prisma.user.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.operatorProfile.findMany({ orderBy: { joinDate: 'asc' } }),
+    prisma.experience.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.availabilitySlot.findMany({ orderBy: { date: 'asc' } }),
+    prisma.booking.findMany({ orderBy: { bookedAt: 'asc' } }),
+    prisma.payment.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.emailEvent.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.dispute.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.savedExperience.findMany(),
+  ])
+
+  const savedIdsByUser = new Map<string, string[]>()
+
+  for (const saved of savedExperiences) {
+    const list = savedIdsByUser.get(saved.touristId) ?? []
+    list.push(saved.experienceId)
+    savedIdsByUser.set(saved.touristId, list)
+  }
+
+  const storedUsers: StoredUser[] = users.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role as UserRole,
+    avatar: user.avatar ?? undefined,
+    createdAt: user.createdAt.toISOString(),
+    savedExperienceIds: savedIdsByUser.get(user.id) ?? [],
+    onboardingPreferences:
+      fromPrismaJson<OnboardingQuizResponse>(user.onboardingPreferences) ?? null,
+    accountSettings:
+      fromPrismaJson<AccountSettings>(user.accountSettings) ?? getDefaultAccountSettings(),
+    passwordHash: user.passwordHash ?? undefined,
+  }))
+
+  const storedOperators: StoredOperator[] = operatorProfiles.map((operator) => ({
+    id: operator.userId,
+    name: operator.name,
+    email: operator.email,
+    phone: operator.phone,
+    bio: operator.bio,
+    avatar: operator.avatar,
+    rating: operator.rating,
+    reviewCount: operator.reviewCount,
+    joinDate: operator.joinDate.toISOString(),
+    verificationStatus: operator.verificationStatus as StoredOperator['verificationStatus'],
+  }))
+
+  const availabilityByExperienceId = new Map<
+    string,
+    StoredExperience['availability']
+  >()
+
+  for (const slot of availabilitySlots) {
+    const list = availabilityByExperienceId.get(slot.experienceId) ?? []
+    list.push({
+      id: slot.id,
+      date: slot.date.toISOString(),
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      spotsAvailable: slot.spotsAvailable,
+      booked: slot.booked,
+    })
+    availabilityByExperienceId.set(slot.experienceId, list)
+  }
+
+  const storedExperiences: StoredExperience[] = experiences.map((experience) => ({
+    id: experience.id,
+    title: experience.title,
+    category: experience.category as StoredExperience['category'],
+    description: experience.description,
+    shortDescription: experience.shortDescription,
+    image: experience.image,
+    images: fromPrismaJson<string[]>(experience.images) ?? [],
+    price: experience.price,
+    currency: experience.currency,
+    duration: experience.duration,
+    groupSize: {
+      min: experience.groupMin,
+      max: experience.groupMax,
+    },
+    location:
+      fromPrismaJson<Experience['location']>(experience.location) ?? {
+        city: '',
+        region: '',
+        coordinates: [0, 0],
+      },
+    operatorId: experience.operatorId,
+    rating: experience.rating,
+    reviewCount: experience.reviewCount,
+    authenticity:
+      fromPrismaJson<Experience['authenticity']>(experience.authenticity) ?? {
+        score: 0,
+        badge: 'emerging',
+      },
+    availability: availabilityByExperienceId.get(experience.id) ?? [],
+    subsections: fromPrismaJson<Experience['subsections']>(experience.subsections) ?? [],
+    highlights: fromPrismaJson<string[]>(experience.highlights) ?? [],
+    inclusionsAndExclusions: {
+      includes: fromPrismaJson<string[]>(experience.includes) ?? [],
+      excludes: fromPrismaJson<string[]>(experience.excludes) ?? [],
+    },
+    accessibility:
+      fromPrismaJson<Experience['accessibility']>(experience.accessibility) ?? {
+        wheelchair: false,
+        hearingLoop: false,
+        visualAid: false,
+        mobilitySupport: false,
+      },
+    status: experience.status as StoredExperience['status'],
+    adminNotes: experience.adminNotes ?? undefined,
+    createdAt: experience.createdAt.toISOString(),
+    updatedAt: experience.updatedAt.toISOString(),
+  }))
+
+  const storedBookings: StoredBooking[] = bookings.map((booking) => ({
+    id: booking.id,
+    experienceId: booking.experienceId,
+    touristId: booking.touristId,
+    bookingDate: booking.bookingDate.toISOString(),
+    guests: booking.guests,
+    totalPrice: booking.totalPrice,
+    status: booking.status as StoredBooking['status'],
+    notes: booking.notes,
+    bookedAt: booking.bookedAt.toISOString(),
+    updatedAt: booking.updatedAt.toISOString(),
+  }))
+
+  const storedPayments: StoredPayment[] = payments.map((payment) => ({
+    id: payment.id,
+    bookingId: payment.bookingId,
+    experienceId: payment.experienceId,
+    touristId: payment.touristId,
+    operatorId: payment.operatorId,
+    amount: payment.amount,
+    currency: payment.currency,
+    status: payment.status as StoredPayment['status'],
+    method: payment.method as StoredPayment['method'],
+    provider: payment.provider as StoredPayment['provider'],
+    createdAt: payment.createdAt.toISOString(),
+    refundedAt: payment.refundedAt?.toISOString(),
+  }))
+
+  const storedEmailEvents: StoredEmailEvent[] = emailEvents.map((event) => ({
+    id: event.id,
+    recipient: event.recipient,
+    subject: event.subject,
+    category: event.category as StoredEmailEvent['category'],
+    status: event.status as StoredEmailEvent['status'],
+    createdAt: event.createdAt.toISOString(),
+  }))
+
+  const storedDisputes: StoredDispute[] = disputes.map((dispute) => ({
+    id: dispute.id,
+    bookingId: dispute.bookingId,
+    touristId: dispute.touristId,
+    operatorId: dispute.operatorId,
+    reason: dispute.reason,
+    status: dispute.status as StoredDispute['status'],
+    createdAt: dispute.createdAt.toISOString(),
+    resolutionNotes: dispute.resolutionNotes ?? undefined,
+    resolvedAt: dispute.resolvedAt?.toISOString(),
+  }))
+
+  return normalizeData({
+    users: storedUsers,
+    operators: storedOperators,
+    experiences: storedExperiences,
+    bookings: storedBookings,
+    payments: storedPayments,
+    emailEvents: storedEmailEvents,
+    disputes: storedDisputes,
+  }).data
+}
+
+async function persistRelationalAppData(data: AppData) {
+  const normalized = normalizeData(data).data
+
+  await prisma.$transaction(async (tx) => {
+    await tx.savedExperience.deleteMany()
+    await tx.dispute.deleteMany()
+    await tx.payment.deleteMany()
+    await tx.booking.deleteMany()
+    await tx.availabilitySlot.deleteMany()
+    await tx.emailEvent.deleteMany()
+    await tx.experience.deleteMany()
+    await tx.operatorProfile.deleteMany()
+    await tx.user.deleteMany()
+
+    if (normalized.users.length > 0) {
+      await tx.user.createMany({
+        data: normalized.users.map((user) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar ?? null,
+          createdAt: new Date(user.createdAt),
+          onboardingPreferences: toPrismaJson(user.onboardingPreferences ?? null),
+          accountSettings: toPrismaJson(user.accountSettings ?? getDefaultAccountSettings()),
+          passwordHash: user.passwordHash ?? null,
+        })),
       })
     }
 
-    return normalized.data
+    if (normalized.operators.length > 0) {
+      await tx.operatorProfile.createMany({
+        data: normalized.operators.map((operator) => ({
+          userId: operator.id,
+          name: operator.name,
+          email: operator.email,
+          phone: operator.phone,
+          bio: operator.bio,
+          avatar: operator.avatar,
+          rating: operator.rating,
+          reviewCount: operator.reviewCount,
+          joinDate: new Date(operator.joinDate),
+          verificationStatus: operator.verificationStatus,
+        })),
+      })
+    }
+
+    if (normalized.experiences.length > 0) {
+      await tx.experience.createMany({
+        data: normalized.experiences.map((experience) => ({
+          id: experience.id,
+          title: experience.title,
+          category: experience.category,
+          description: experience.description,
+          shortDescription: experience.shortDescription,
+          image: experience.image,
+          images: toPrismaJson(experience.images),
+          price: experience.price,
+          currency: experience.currency,
+          duration: experience.duration,
+          groupMin: experience.groupSize.min,
+          groupMax: experience.groupSize.max,
+          location: toPrismaJson(experience.location),
+          operatorId: experience.operatorId,
+          rating: experience.rating,
+          reviewCount: experience.reviewCount,
+          authenticity: toPrismaJson(experience.authenticity),
+          subsections: toPrismaJson(experience.subsections),
+          highlights: toPrismaJson(experience.highlights),
+          includes: toPrismaJson(experience.inclusionsAndExclusions.includes),
+          excludes: toPrismaJson(experience.inclusionsAndExclusions.excludes),
+          accessibility: toPrismaJson(experience.accessibility),
+          status: experience.status,
+          adminNotes: experience.adminNotes ?? null,
+          createdAt: new Date(experience.createdAt),
+          updatedAt: new Date(experience.updatedAt),
+        })),
+      })
+
+      const availabilityData = normalized.experiences.flatMap((experience) =>
+        experience.availability.map((slot) => ({
+          id: slot.id,
+          experienceId: experience.id,
+          date: new Date(slot.date),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          spotsAvailable: slot.spotsAvailable,
+          booked: slot.booked,
+        }))
+      )
+
+      if (availabilityData.length > 0) {
+        await tx.availabilitySlot.createMany({
+          data: availabilityData,
+        })
+      }
+    }
+
+    if (normalized.bookings.length > 0) {
+      await tx.booking.createMany({
+        data: normalized.bookings.map((booking) => ({
+          id: booking.id,
+          experienceId: booking.experienceId,
+          touristId: booking.touristId,
+          bookingDate: new Date(booking.bookingDate),
+          guests: booking.guests,
+          totalPrice: booking.totalPrice,
+          status: booking.status,
+          notes: booking.notes,
+          bookedAt: new Date(booking.bookedAt),
+          updatedAt: new Date(booking.updatedAt),
+        })),
+      })
+    }
+
+    if (normalized.payments.length > 0) {
+      await tx.payment.createMany({
+        data: normalized.payments.map((payment) => ({
+          id: payment.id,
+          bookingId: payment.bookingId,
+          experienceId: payment.experienceId,
+          touristId: payment.touristId,
+          operatorId: payment.operatorId,
+          amount: payment.amount,
+          currency: payment.currency,
+          status: payment.status,
+          method: payment.method,
+          provider: payment.provider,
+          createdAt: new Date(payment.createdAt),
+          refundedAt: payment.refundedAt ? new Date(payment.refundedAt) : null,
+        })),
+      })
+    }
+
+    if (normalized.emailEvents.length > 0) {
+      await tx.emailEvent.createMany({
+        data: normalized.emailEvents.map((event) => ({
+          id: event.id,
+          recipient: event.recipient,
+          subject: event.subject,
+          category: event.category,
+          status: event.status,
+          createdAt: new Date(event.createdAt),
+        })),
+      })
+    }
+
+    if (normalized.disputes.length > 0) {
+      await tx.dispute.createMany({
+        data: normalized.disputes.map((dispute) => ({
+          id: dispute.id,
+          bookingId: dispute.bookingId,
+          touristId: dispute.touristId,
+          operatorId: dispute.operatorId,
+          reason: dispute.reason,
+          status: dispute.status,
+          createdAt: new Date(dispute.createdAt),
+          resolutionNotes: dispute.resolutionNotes ?? null,
+          resolvedAt: dispute.resolvedAt ? new Date(dispute.resolvedAt) : null,
+        })),
+      })
+    }
+
+    const savedData = normalized.users.flatMap((user) =>
+      (user.savedExperienceIds ?? []).map((experienceId) => ({
+        touristId: user.id,
+        experienceId,
+      }))
+    )
+
+    if (savedData.length > 0) {
+      await tx.savedExperience.createMany({
+        data: savedData,
+      })
+    }
+  })
+}
+
+async function waitForRelationalBootstrap() {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const userCount = await prisma.user.count()
+
+    if (userCount > 0) {
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+
+  throw new Error('Timed out while waiting for relational data bootstrap to complete')
+}
+
+async function ensureRelationalData() {
+  if ((await prisma.user.count()) > 0) {
+    return
+  }
+
+  try {
+    await prisma.appState.create({
+      data: {
+        id: RELATIONAL_BOOTSTRAP_LOCK_ID,
+        payload: toPrismaJson({ status: 'bootstrapping', startedAt: new Date().toISOString() }),
+      },
+    })
+  } catch (error) {
+    if (isPrismaKnownError(error, 'P2002')) {
+      await waitForRelationalBootstrap()
+      return
+    }
+
+    throw error
+  }
+
+  try {
+    if ((await prisma.user.count()) === 0) {
+      const legacyData = await readLegacyAppStateFromDatabase()
+      const seedData = legacyData ?? createSeedData()
+      await persistRelationalAppData(seedData)
+    }
+  } catch (error) {
+    await prisma.appState
+      .delete({
+        where: { id: RELATIONAL_BOOTSTRAP_LOCK_ID },
+      })
+      .catch(() => undefined)
+
+    throw error
+  }
+}
+
+export async function readAppData(): Promise<AppData> {
+  if (hasDatabaseUrl()) {
+    await ensureRelationalData()
+    return readRelationalAppData()
   }
 
   await ensureDataFile()
@@ -363,29 +782,14 @@ export async function readAppData(): Promise<AppData> {
 
 export async function updateAppData<T>(updater: (data: AppData) => T | Promise<T>) {
   const next = writeQueue.then(async () => {
-    if (hasDatabaseUrl()) {
-      await ensureDatabaseState()
-
-      return prisma.$transaction(async (tx) => {
-        const record = await tx.appState.findUniqueOrThrow({
-          where: { id: APP_STATE_ID },
-        })
-        const data = normalizeData(fromPrismaJson(record.payload)).data
-        const result = await updater(data)
-
-        await tx.appState.update({
-          where: { id: APP_STATE_ID },
-          data: {
-            payload: toPrismaJson(data),
-          },
-        })
-
-        return result
-      })
-    }
-
     const data = await readAppData()
     const result = await updater(data)
+
+    if (hasDatabaseUrl()) {
+      await persistRelationalAppData(data)
+      return result
+    }
+
     await writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8')
     return result
   })

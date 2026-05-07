@@ -7,9 +7,214 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  tourist
+  operator
+  admin
+}
+
+enum VerificationStatus {
+  verified
+  pending
+  unverified
+}
+
+enum ExperienceCategory {
+  cultural
+  culinary
+  craft
+  ritual
+  community
+}
+
+enum ExperienceStatus {
+  draft
+  pending_review
+  published
+  archived
+}
+
+enum BookingManagementStatus {
+  pending
+  confirmed
+  in_progress
+  completed
+  cancelled
+}
+
+enum PaymentStatus {
+  paid
+  refunded
+  failed
+}
+
+enum PaymentMethod {
+  card
+  bank_transfer
+  wallet
+}
+
+enum EmailEventStatus {
+  queued
+  sent
+}
+
+enum DisputeStatus {
+  open
+  resolved
+}
+
 model AppState {
   id        String   @id
   payload   Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model User {
+  id                    String            @id
+  name                  String
+  email                 String            @unique
+  role                  String
+  avatar                String?
+  createdAt             DateTime
+  onboardingPreferences Json?
+  accountSettings       Json?
+  passwordHash          String?
+  operatorProfile       OperatorProfile?
+  bookings              Booking[]         @relation("TouristBookings")
+  payments              Payment[]         @relation("TouristPayments")
+  disputes              Dispute[]         @relation("TouristDisputes")
+  savedExperiences      SavedExperience[]
+}
+
+model OperatorProfile {
+  userId             String             @id
+  name               String
+  email              String
+  phone              String
+  bio                String
+  avatar             String
+  rating             Float
+  reviewCount        Int
+  joinDate           DateTime
+  verificationStatus String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experiences        Experience[]
+  payments           Payment[]          @relation("OperatorPayments")
+  disputes           Dispute[]          @relation("OperatorDisputes")
+}
+
+model Experience {
+  id          String             @id
+  title       String
+  category    String
+  description String
+  shortDescription String
+  image       String
+  images      Json
+  price       Float
+  currency    String
+  duration    Float
+  groupMin    Int
+  groupMax    Int
+  location    Json
+  operatorId  String
+  rating      Float
+  reviewCount Int
+  authenticity Json
+  subsections Json
+  highlights  Json
+  includes    Json
+  excludes    Json
+  accessibility Json
+  status      String
+  adminNotes  String?
+  createdAt   DateTime
+  updatedAt   DateTime
+  operator    OperatorProfile    @relation(fields: [operatorId], references: [userId], onDelete: Cascade)
+  availability AvailabilitySlot[]
+  bookings    Booking[]
+  payments    Payment[]
+  savedBy     SavedExperience[]
+}
+
+model AvailabilitySlot {
+  id             String     @id
+  experienceId   String
+  date           DateTime
+  startTime      String
+  endTime        String
+  spotsAvailable Int
+  booked         Int
+  experience     Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id          String                  @id
+  experienceId String
+  touristId   String
+  bookingDate DateTime
+  guests      Int
+  totalPrice  Float
+  status      String
+  notes       String
+  bookedAt    DateTime
+  updatedAt   DateTime
+  experience  Experience              @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  tourist     User                    @relation("TouristBookings", fields: [touristId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+  dispute     Dispute?
+}
+
+model Payment {
+  id           String        @id
+  bookingId    String
+  experienceId String
+  touristId    String
+  operatorId   String
+  amount       Float
+  currency     String
+  status       String
+  method       String
+  provider     String
+  createdAt    DateTime
+  refundedAt   DateTime?
+  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  experience   Experience    @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  tourist      User          @relation("TouristPayments", fields: [touristId], references: [id], onDelete: Cascade)
+  operator     OperatorProfile @relation("OperatorPayments", fields: [operatorId], references: [userId], onDelete: Cascade)
+}
+
+model EmailEvent {
+  id        String           @id
+  recipient String
+  subject   String
+  category  String
+  status    String
+  createdAt DateTime
+}
+
+model Dispute {
+  id              String        @id
+  bookingId       String        @unique
+  touristId       String
+  operatorId      String
+  reason          String
+  status          String
+  createdAt       DateTime
+  resolutionNotes String?
+  resolvedAt      DateTime?
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  tourist         User          @relation("TouristDisputes", fields: [touristId], references: [id], onDelete: Cascade)
+  operator        OperatorProfile @relation("OperatorDisputes", fields: [operatorId], references: [userId], onDelete: Cascade)
+}
+
+model SavedExperience {
+  touristId    String
+  experienceId String
+  tourist      User       @relation(fields: [touristId], references: [id], onDelete: Cascade)
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@id([touristId, experienceId])
 }
