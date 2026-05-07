@@ -969,6 +969,52 @@ export async function updateUserProfileInStore(
     bio?: string
   }
 ) {
+  if (hasDatabaseUrl()) {
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true },
+    })
+
+    if (!existing) {
+      throw new Error('User not found')
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: {
+          name: updates.name,
+          email: updates.email,
+          avatar: updates.avatar ?? undefined,
+        },
+      })
+
+      if (existing.role === 'operator') {
+        const operator = await tx.operatorProfile.findUnique({
+          where: { userId: id },
+          select: { userId: true },
+        })
+
+        if (!operator) {
+          throw new Error('Operator profile not found')
+        }
+
+        await tx.operatorProfile.update({
+          where: { userId: id },
+          data: {
+            name: updates.name,
+            email: updates.email,
+            avatar: updates.avatar ?? undefined,
+            phone: updates.phone ?? undefined,
+            bio: updates.bio ?? undefined,
+          },
+        })
+      }
+    })
+
+    return getUserFromStore(id)
+  }
+
   return updateAppData((data) => {
     const user = data.users.find((item) => item.id === id)
 
@@ -1009,6 +1055,62 @@ export async function createUserInStore(input: {
   password: string
   role: 'tourist' | 'operator'
 }) {
+  if (hasDatabaseUrl()) {
+    const existing = await prisma.user.findFirst({
+      where: { email: { equals: input.email, mode: 'insensitive' } },
+      select: { id: true },
+    })
+
+    if (existing) {
+      throw new Error('An account with that email already exists')
+    }
+
+    const userId = `${input.role}-${Date.now()}`
+    const createdAt = new Date()
+    const avatar = `https://i.pravatar.cc/300?u=${encodeURIComponent(input.email)}`
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.create({
+        data: {
+          id: userId,
+          name: input.name,
+          email: input.email,
+          role: input.role,
+          avatar,
+          createdAt,
+          onboardingPreferences: toPrismaJson(null),
+          accountSettings: toPrismaJson(getDefaultAccountSettings()),
+          passwordHash: hashPassword(input.password),
+        },
+      })
+
+      if (input.role === 'operator') {
+        await tx.operatorProfile.create({
+          data: {
+            userId,
+            name: input.name,
+            email: input.email,
+            phone: '',
+            bio: 'New operator on AfriConnect.',
+            avatar,
+            rating: 0,
+            reviewCount: 0,
+            joinDate: createdAt,
+            verificationStatus: 'pending',
+          },
+        })
+      }
+    })
+
+    const user = await getUserFromStore(userId)
+
+    if (!user) {
+      throw new Error('User could not be created')
+    }
+
+    return user
+  }
+
   return updateAppData((data) => {
     const existing = data.users.find(
       (user) => user.email.toLowerCase() === input.email.toLowerCase()
@@ -1059,6 +1161,26 @@ export async function getAccountSettingsFromStore(id: string) {
 }
 
 export async function saveAccountSettingsToStore(id: string, settings: AccountSettings) {
+  if (hasDatabaseUrl()) {
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    if (!existing) {
+      throw new Error('User not found')
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: {
+        accountSettings: toPrismaJson(settings),
+      },
+    })
+
+    return settings
+  }
+
   return updateAppData((data) => {
     const user = data.users.find((item) => item.id === id)
 

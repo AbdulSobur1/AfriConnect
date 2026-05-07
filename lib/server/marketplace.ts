@@ -25,6 +25,7 @@ import {
   listUsersFromStore,
   updateAppData,
 } from '@/lib/server/data-store'
+import { hasDatabaseUrl, prisma } from '@/lib/server/db'
 
 export async function listExperiences() {
   const experiences = await listExperiencesFromStore()
@@ -167,6 +168,26 @@ export async function saveTouristPreferences(
   touristId: string,
   preferences: OnboardingQuizResponse
 ) {
+  if (hasDatabaseUrl()) {
+    const existing = await prisma.user.findUnique({
+      where: { id: touristId },
+      select: { id: true },
+    })
+
+    if (!existing) {
+      throw new Error('User not found')
+    }
+
+    await prisma.user.update({
+      where: { id: touristId },
+      data: {
+        onboardingPreferences: JSON.parse(JSON.stringify(preferences)),
+      },
+    })
+
+    return preferences
+  }
+
   return updateAppData(async (data) => {
     const user = data.users.find((item) => item.id === touristId)
 
@@ -186,6 +207,33 @@ export async function saveExperience(touristId: string, experienceId: string) {
     throw new Error('Experience not found')
   }
 
+  if (hasDatabaseUrl()) {
+    const user = await prisma.user.findUnique({
+      where: { id: touristId },
+      select: { id: true },
+    })
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    await prisma.savedExperience.upsert({
+      where: {
+        touristId_experienceId: {
+          touristId,
+          experienceId,
+        },
+      },
+      update: {},
+      create: {
+        touristId,
+        experienceId,
+      },
+    })
+
+    return { saved: true }
+  }
+
   return updateAppData(async (data) => {
     const user = data.users.find((item) => item.id === touristId)
 
@@ -202,6 +250,26 @@ export async function saveExperience(touristId: string, experienceId: string) {
 }
 
 export async function unsaveExperience(touristId: string, experienceId: string) {
+  if (hasDatabaseUrl()) {
+    const user = await prisma.user.findUnique({
+      where: { id: touristId },
+      select: { id: true },
+    })
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    await prisma.savedExperience.deleteMany({
+      where: {
+        touristId,
+        experienceId,
+      },
+    })
+
+    return { saved: false }
+  }
+
   return updateAppData(async (data) => {
     const user = data.users.find((item) => item.id === touristId)
 
@@ -241,6 +309,116 @@ export async function createBooking(
 
   if (input.guests > remainingSpots) {
     throw new Error('Not enough spots remaining for that date')
+  }
+
+  if (hasDatabaseUrl()) {
+    const now = new Date()
+    const bookingId = `booking-${Date.now()}`
+    const paymentId = `payment-${Date.now()}`
+
+    await prisma.$transaction(async (tx) => {
+      const slot = await tx.availabilitySlot.findFirst({
+        where: {
+          experienceId: experience.id,
+          date: {
+            gte: new Date(`${input.bookingDate}T00:00:00.000Z`),
+            lt: new Date(`${input.bookingDate}T23:59:59.999Z`),
+          },
+        },
+      })
+
+      if (!slot) {
+        throw new Error('Selected date is no longer available')
+      }
+
+      const remaining = slot.spotsAvailable - slot.booked
+
+      if (input.guests > remaining) {
+        throw new Error('Not enough spots remaining for that date')
+      }
+
+      await tx.booking.create({
+        data: {
+          id: bookingId,
+          experienceId: experience.id,
+          touristId,
+          bookingDate: new Date(`${input.bookingDate}T00:00:00.000Z`),
+          guests: input.guests,
+          totalPrice: experience.price * input.guests,
+          status: 'confirmed',
+          notes: '',
+          bookedAt: now,
+          updatedAt: now,
+        },
+      })
+
+      await tx.payment.create({
+        data: {
+          id: paymentId,
+          bookingId,
+          experienceId: experience.id,
+          touristId,
+          operatorId: experience.operatorId,
+          amount: experience.price * input.guests,
+          currency: experience.currency,
+          status: 'paid',
+          method: 'card',
+          provider: 'simulated',
+          createdAt: now,
+        },
+      })
+
+      await tx.availabilitySlot.update({
+        where: { id: slot.id },
+        data: {
+          booked: {
+            increment: input.guests,
+          },
+        },
+      })
+
+      const tourist = await tx.user.findUnique({
+        where: { id: touristId },
+        select: { email: true },
+      })
+
+      const operator = await tx.operatorProfile.findUnique({
+        where: { userId: experience.operatorId },
+        select: { email: true },
+      })
+
+      if (tourist && operator) {
+        await tx.emailEvent.createMany({
+          data: [
+            {
+              id: `email-${Date.now()}-1`,
+              recipient: tourist.email,
+              subject: `Booking confirmed: ${experience.title}`,
+              category: 'booking-confirmation',
+              status: 'sent',
+              createdAt: now,
+            },
+            {
+              id: `email-${Date.now()}-2`,
+              recipient: operator.email,
+              subject: `New booking received for ${experience.title}`,
+              category: 'operator-notice',
+              status: 'sent',
+              createdAt: now,
+            },
+          ],
+        })
+      }
+    })
+
+    const bookings = await listTouristBookingsFromStore(touristId)
+    const created = bookings.find((booking) => booking.id === bookingId)
+
+    if (!created) {
+      throw new Error('Booking could not be loaded after creation')
+    }
+
+    return created
   }
 
   return updateAppData(async (data) => {
@@ -383,6 +561,78 @@ export async function createOperatorExperience(
 
   const status: ExperienceStatus = input.status ?? 'draft'
 
+  if (hasDatabaseUrl()) {
+    const now = new Date()
+    const authenticity = getAuthenticityByStatus(status)
+    const availability = buildDefaultAvailability()
+    const experienceId = `exp-${Date.now()}`
+
+    await prisma.$transaction(async (tx) => {
+      await tx.experience.create({
+        data: {
+          id: experienceId,
+          title: input.title,
+          category: input.category,
+          description: input.description,
+          shortDescription: input.shortDescription,
+          image: input.image,
+          images: [input.image],
+          price: input.price,
+          currency: input.currency,
+          duration: input.duration,
+          groupMin: input.groupSize.min,
+          groupMax: input.groupSize.max,
+          location: input.location,
+          operatorId,
+          rating: 0,
+          reviewCount: 0,
+          authenticity,
+          subsections: [
+            {
+              id: `sub-${Date.now()}`,
+              type: 'direct',
+              title: 'Book Directly',
+              description: `Book directly with ${operator.name}`,
+              platforms: ['direct'],
+              url: '#',
+              image: input.image,
+            },
+          ],
+          highlights: input.highlights,
+          includes: input.includes,
+          excludes: input.excludes,
+          accessibility: {
+            wheelchair: true,
+            hearingLoop: false,
+            visualAid: false,
+            mobilitySupport: true,
+          },
+          status,
+          adminNotes:
+            status === 'pending-review'
+              ? 'Awaiting admin review before publishing.'
+              : 'Draft created by operator.',
+          createdAt: now,
+          updatedAt: now,
+        },
+      })
+
+      await tx.availabilitySlot.createMany({
+        data: availability.map((slot) => ({
+          id: slot.id,
+          experienceId,
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          spotsAvailable: slot.spotsAvailable,
+          booked: slot.booked,
+        })),
+      })
+    })
+
+    return experienceId
+  }
+
   return updateAppData(async (data) => {
     const now = new Date()
     const authenticity = getAuthenticityByStatus(status)
@@ -450,6 +700,53 @@ export async function updateOperatorExperience(
   operatorId: string,
   input: ExperienceUpsertInput
 ) {
+  if (hasDatabaseUrl()) {
+    const existing = await prisma.experience.findUnique({
+      where: { id: experienceId },
+      select: { id: true, operatorId: true, status: true, adminNotes: true },
+    })
+
+    if (!existing || existing.operatorId !== operatorId) {
+      throw new Error('Experience not found')
+    }
+
+    const nextStatus =
+      input.status ??
+      (existing.status === 'published'
+        ? 'pending-review'
+        : (existing.status as ExperienceStatus))
+
+    await prisma.experience.update({
+      where: { id: experienceId },
+      data: {
+        title: input.title,
+        category: input.category,
+        description: input.description,
+        shortDescription: input.shortDescription,
+        image: input.image,
+        images: [input.image],
+        price: input.price,
+        currency: input.currency,
+        duration: input.duration,
+        groupMin: input.groupSize.min,
+        groupMax: input.groupSize.max,
+        location: input.location,
+        highlights: input.highlights,
+        includes: input.includes,
+        excludes: input.excludes,
+        status: nextStatus,
+        authenticity: getAuthenticityByStatus(nextStatus),
+        adminNotes:
+          nextStatus === 'pending-review'
+            ? 'Updated by operator and awaiting admin review.'
+            : existing.adminNotes,
+        updatedAt: new Date(),
+      },
+    })
+
+    return experienceId
+  }
+
   return updateAppData(async (data) => {
     const experience = data.experiences.find((item) => item.id === experienceId)
 
@@ -490,6 +787,36 @@ export async function updateOperatorExperience(
 }
 
 export async function deleteOperatorExperience(experienceId: string, operatorId: string) {
+  if (hasDatabaseUrl()) {
+    const experience = await prisma.experience.findUnique({
+      where: { id: experienceId },
+      select: { id: true, operatorId: true },
+    })
+
+    if (!experience || experience.operatorId !== operatorId) {
+      throw new Error('Experience not found')
+    }
+
+    const activeBookings = await prisma.booking.count({
+      where: {
+        experienceId,
+        status: {
+          notIn: ['cancelled', 'completed'],
+        },
+      },
+    })
+
+    if (activeBookings > 0) {
+      throw new Error('You cannot delete an experience with active bookings')
+    }
+
+    await prisma.experience.delete({
+      where: { id: experienceId },
+    })
+
+    return { deleted: true }
+  }
+
   return updateAppData(async (data) => {
     const index = data.experiences.findIndex(
       (item) => item.id === experienceId && item.operatorId === operatorId
@@ -520,6 +847,122 @@ export async function cancelTouristBooking(
   bookingId: string,
   touristId = getDefaultViewerIds().touristId
 ): Promise<TouristBookingRecord> {
+  if (hasDatabaseUrl()) {
+    await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+      })
+
+      if (!booking) {
+        throw new Error('Booking not found')
+      }
+
+      if (booking.touristId !== touristId) {
+        throw new Error('You do not have access to that booking')
+      }
+
+      const wasCancelled = booking.status === 'cancelled'
+      const updatedAt = new Date()
+
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: 'cancelled',
+          updatedAt,
+        },
+      })
+
+      const experience = await tx.experience.findUnique({
+        where: { id: booking.experienceId },
+      })
+
+      if (!experience) {
+        throw new Error('Experience not found')
+      }
+
+      const operator = await tx.operatorProfile.findUnique({
+        where: { userId: experience.operatorId },
+      })
+
+      if (!operator) {
+        throw new Error('Operator not found')
+      }
+
+      const slot = await tx.availabilitySlot.findFirst({
+        where: {
+          experienceId: booking.experienceId,
+          date: {
+            gte: new Date(booking.bookingDate.toISOString().slice(0, 10) + 'T00:00:00.000Z'),
+            lt: new Date(booking.bookingDate.toISOString().slice(0, 10) + 'T23:59:59.999Z'),
+          },
+        },
+      })
+
+      if (slot && !wasCancelled) {
+        await tx.availabilitySlot.update({
+          where: { id: slot.id },
+          data: {
+            booked: Math.max(0, slot.booked - booking.guests),
+          },
+        })
+      }
+
+      const payment = await tx.payment.findFirst({
+        where: {
+          bookingId: booking.id,
+          status: 'paid',
+        },
+      })
+
+      if (payment) {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'refunded',
+            refundedAt: updatedAt,
+          },
+        })
+      }
+
+      const tourist = await tx.user.findUnique({
+        where: { id: booking.touristId },
+        select: { email: true },
+      })
+
+      if (tourist) {
+        await tx.emailEvent.createMany({
+          data: [
+            {
+              id: `email-${Date.now()}-cancel-tourist`,
+              recipient: tourist.email,
+              subject: `Booking cancelled: ${experience.title}`,
+              category: 'booking-cancellation',
+              status: 'sent',
+              createdAt: updatedAt,
+            },
+            {
+              id: `email-${Date.now()}-cancel-operator`,
+              recipient: operator.email,
+              subject: `Booking cancelled for ${experience.title}`,
+              category: 'operator-notice',
+              status: 'sent',
+              createdAt: updatedAt,
+            },
+          ],
+        })
+      }
+    })
+
+    const bookings = await listTouristBookingsFromStore(touristId)
+    const updated = bookings.find((booking) => booking.id === bookingId)
+
+    if (!updated) {
+      throw new Error('Booking could not be loaded after cancellation')
+    }
+
+    return updated
+  }
+
   return updateAppData(async (data) => {
     const booking = data.bookings.find((item) => item.id === bookingId)
 
@@ -618,6 +1061,41 @@ export async function updateOperatorBooking(
   },
   operatorId = getDefaultViewerIds().operatorId
 ): Promise<OperatorBookingRecord> {
+  if (hasDatabaseUrl()) {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        experience: true,
+      },
+    })
+
+    if (!booking) {
+      throw new Error('Booking not found')
+    }
+
+    if (booking.experience.operatorId !== operatorId) {
+      throw new Error('You do not have access to that booking')
+    }
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: updates.status ?? undefined,
+        notes: typeof updates.notes === 'string' ? updates.notes : undefined,
+        updatedAt: new Date(),
+      },
+    })
+
+    const bookings = await listOperatorBookingsFromStore(operatorId)
+    const updated = bookings.find((item) => item.id === bookingId)
+
+    if (!updated) {
+      throw new Error('Booking could not be loaded after update')
+    }
+
+    return updated
+  }
+
   return updateAppData(async (data) => {
     const booking = data.bookings.find((item) => item.id === bookingId)
 
@@ -747,6 +1225,24 @@ export async function updateOperatorVerification(
   operatorId: string,
   verificationStatus: 'verified' | 'pending' | 'unverified'
 ) {
+  if (hasDatabaseUrl()) {
+    const operator = await prisma.operatorProfile.findUnique({
+      where: { userId: operatorId },
+      select: { userId: true },
+    })
+
+    if (!operator) {
+      throw new Error('Operator not found')
+    }
+
+    await prisma.operatorProfile.update({
+      where: { userId: operatorId },
+      data: { verificationStatus },
+    })
+
+    return getOperatorProfileFromStore(operatorId)
+  }
+
   return updateAppData(async (data) => {
     const operator = data.operators.find((item) => item.id === operatorId)
 
@@ -766,6 +1262,40 @@ export async function updateExperienceModeration(
     adminNotes?: string
   }
 ) {
+  if (hasDatabaseUrl()) {
+    const experience = await prisma.experience.findUnique({
+      where: { id: experienceId },
+      select: { id: true, operatorId: true, adminNotes: true },
+    })
+
+    if (!experience) {
+      throw new Error('Experience not found')
+    }
+
+    if (updates.status === 'published') {
+      const operator = await prisma.operatorProfile.findUnique({
+        where: { userId: experience.operatorId },
+        select: { verificationStatus: true },
+      })
+
+      if (!operator || operator.verificationStatus !== 'verified') {
+        throw new Error('Only experiences from verified operators can be published')
+      }
+    }
+
+    await prisma.experience.update({
+      where: { id: experienceId },
+      data: {
+        status: updates.status,
+        authenticity: getAuthenticityByStatus(updates.status),
+        adminNotes: updates.adminNotes ?? experience.adminNotes,
+        updatedAt: new Date(),
+      },
+    })
+
+    return experienceId
+  }
+
   return updateAppData(async (data) => {
     const experience = data.experiences.find((item) => item.id === experienceId)
 
@@ -791,6 +1321,103 @@ export async function updateExperienceModeration(
 }
 
 export async function createBookingDispute(bookingId: string, touristId: string, reason: string) {
+  if (hasDatabaseUrl()) {
+    await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+      })
+
+      if (!booking) {
+        throw new Error('Booking not found')
+      }
+
+      if (booking.touristId !== touristId) {
+        throw new Error('You do not have access to that booking')
+      }
+
+      const existing = await tx.dispute.findUnique({
+        where: { bookingId },
+      })
+
+      if (existing && existing.status === 'open') {
+        throw new Error('An open dispute already exists for this booking')
+      }
+
+      const experience = await tx.experience.findUnique({
+        where: { id: booking.experienceId },
+      })
+      const operator = experience
+        ? await tx.operatorProfile.findUnique({
+            where: { userId: experience.operatorId },
+          })
+        : null
+      const tourist = await tx.user.findUnique({
+        where: { id: touristId },
+      })
+
+      if (!experience || !operator || !tourist) {
+        throw new Error('Unable to create dispute for this booking')
+      }
+
+      const now = new Date()
+
+      if (existing) {
+        await tx.dispute.update({
+          where: { bookingId },
+          data: {
+            reason,
+            status: 'open',
+            createdAt: now,
+            resolutionNotes: null,
+            resolvedAt: null,
+          },
+        })
+      } else {
+        await tx.dispute.create({
+          data: {
+            id: `dispute-${Date.now()}`,
+            bookingId: booking.id,
+            touristId,
+            operatorId: operator.userId,
+            reason,
+            status: 'open',
+            createdAt: now,
+          },
+        })
+      }
+
+      await tx.emailEvent.createMany({
+        data: [
+          {
+            id: `email-${Date.now()}-dispute-admin`,
+            recipient: 'admin@africonnect.com',
+            subject: `New dispute reported for ${experience.title}`,
+            category: 'dispute-update',
+            status: 'sent',
+            createdAt: now,
+          },
+          {
+            id: `email-${Date.now()}-dispute-tourist`,
+            recipient: tourist.email,
+            subject: `Support request received for ${experience.title}`,
+            category: 'dispute-update',
+            status: 'sent',
+            createdAt: now,
+          },
+        ],
+      })
+    })
+
+    const bookings = await listTouristBookingsFromStore(touristId)
+    const updated = bookings.find((booking) => booking.id === bookingId)
+
+    if (!updated) {
+      throw new Error('Booking could not be loaded after dispute creation')
+    }
+
+    return updated
+  }
+
   return updateAppData(async (data) => {
     const booking = data.bookings.find((item) => item.id === bookingId)
 
@@ -889,6 +1516,70 @@ export async function resolveDispute(
   disputeId: string,
   resolutionNotes?: string
 ) {
+  if (hasDatabaseUrl()) {
+    await prisma.$transaction(async (tx) => {
+      const dispute = await tx.dispute.findUnique({
+        where: { id: disputeId },
+      })
+
+      if (!dispute) {
+        throw new Error('Dispute not found')
+      }
+
+      const resolvedAt = new Date()
+
+      await tx.dispute.update({
+        where: { id: disputeId },
+        data: {
+          status: 'resolved',
+          resolutionNotes: resolutionNotes?.trim() || 'Resolved by admin.',
+          resolvedAt,
+        },
+      })
+
+      const tourist = await tx.user.findUnique({
+        where: { id: dispute.touristId },
+        select: { email: true },
+      })
+      const operator = await tx.operatorProfile.findUnique({
+        where: { userId: dispute.operatorId },
+        select: { email: true },
+      })
+
+      const events = []
+
+      if (tourist) {
+        events.push({
+          id: `email-${Date.now()}-dispute-resolved-tourist`,
+          recipient: tourist.email,
+          subject: `Your support request has been resolved`,
+          category: 'dispute-update',
+          status: 'sent',
+          createdAt: resolvedAt,
+        })
+      }
+
+      if (operator) {
+        events.push({
+          id: `email-${Date.now()}-dispute-resolved-operator`,
+          recipient: operator.email,
+          subject: `A support case for one of your bookings was resolved`,
+          category: 'dispute-update',
+          status: 'sent',
+          createdAt: resolvedAt,
+        })
+      }
+
+      if (events.length > 0) {
+        await tx.emailEvent.createMany({
+          data: events,
+        })
+      }
+    })
+
+    return disputeId
+  }
+
   return updateAppData(async (data) => {
     const dispute = data.disputes.find((item) => item.id === disputeId)
 
