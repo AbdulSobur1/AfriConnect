@@ -4,7 +4,14 @@ import { useState } from 'react'
 import { BackButton } from '@/components/common/back-button'
 import { Header } from '@/components/common/header'
 import { Button } from '@/components/ui/button'
-import { Empty } from '@/components/ui/empty'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { BookingCard } from '@/components/tourist/booking-card'
 import { TouristBookingRecord } from '@/lib/types'
 import Link from 'next/link'
@@ -29,16 +36,23 @@ export function TouristBookingsPageClient({
           <h1 className="mb-8 text-4xl font-bold text-foreground">My Bookings</h1>
 
           {bookings.length === 0 ? (
-            <Empty
-              icon={Calendar}
-              title="No Bookings Yet"
-              description="You haven&apos;t booked any experiences yet. Let&apos;s find your perfect cultural adventure!"
-              action={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Calendar className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>No Bookings Yet</EmptyTitle>
+                <EmptyDescription>
+                  You haven&apos;t booked any experiences yet. Let&apos;s find your perfect
+                  cultural adventure!
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
                 <Button asChild>
                   <Link href="/experiences">Explore Experiences</Link>
                 </Button>
-              }
-            />
+              </EmptyContent>
+            </Empty>
           ) : (
             <div className="space-y-6">
               {bookings.map((booking) => (

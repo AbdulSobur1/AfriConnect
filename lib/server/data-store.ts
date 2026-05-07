@@ -2,6 +2,7 @@ import 'server-only'
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { Prisma } from '@prisma/client'
 import {
   Experience,
   ExperienceOperator,
@@ -17,6 +18,7 @@ import {
   AccountSettings,
 } from '@/lib/types'
 import { mockCurrentUser, mockExperiences, mockOperators } from '@/lib/mock-data'
+import { hasDatabaseUrl, prisma } from '@/lib/server/db'
 import { hashPassword } from '@/lib/server/password'
 
 interface StoredUser {
@@ -75,6 +77,14 @@ interface AppData {
   disputes: StoredDispute[]
 }
 
+function toPrismaJson(data: AppData): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(data)) as Prisma.InputJsonValue
+}
+
+function fromPrismaJson(value: Prisma.JsonValue): AppData {
+  return value as unknown as AppData
+}
+
 function getDefaultAccountSettings(): AccountSettings {
   return {
     marketingEmails: true,
@@ -84,6 +94,11 @@ function getDefaultAccountSettings(): AccountSettings {
     currency: 'USD',
     profileVisibility: 'public',
   }
+}
+
+function getSeedAdminPasswordHash() {
+  const password = process.env.ADMIN_SEED_PASSWORD?.trim()
+  return password ? hashPassword(password) : undefined
 }
 
 function makeSeedExperience(experience: Experience): Experience {
@@ -96,6 +111,7 @@ function makeSeedExperience(experience: Experience): Experience {
 
 const DATA_DIR = path.join(process.cwd(), 'data')
 const DATA_FILE = path.join(DATA_DIR, 'app-data.json')
+const APP_STATE_ID = 'main'
 
 const DEFAULT_OPERATOR_ID = mockOperators[0].id
 const DEFAULT_TOURIST_ID = mockCurrentUser.id
@@ -186,7 +202,7 @@ function createSeedData(): AppData {
       savedExperienceIds: [],
       onboardingPreferences: null,
       accountSettings: getDefaultAccountSettings(),
-      passwordHash: undefined,
+      passwordHash: getSeedAdminPasswordHash(),
     },
   ]
 
@@ -240,6 +256,21 @@ async function ensureDataFile() {
   }
 }
 
+async function ensureDatabaseState() {
+  const existing = await prisma.appState.findUnique({
+    where: { id: APP_STATE_ID },
+  })
+
+  if (!existing) {
+    await prisma.appState.create({
+      data: {
+        id: APP_STATE_ID,
+        payload: toPrismaJson(createSeedData()),
+      },
+    })
+  }
+}
+
 function normalizeData(data: AppData) {
   let changed = false
 
@@ -280,8 +311,8 @@ function normalizeData(data: AppData) {
     changed = true
   }
 
-  for (const payment of data.payments) {
-    if (!('experienceId' in payment)) {
+  for (const payment of data.payments as Array<StoredPayment & { experienceId?: string }>) {
+    if (!payment.experienceId) {
       const booking = data.bookings.find((item) => item.id === payment.bookingId)
       payment.experienceId = booking?.experienceId ?? ''
       changed = true
@@ -302,6 +333,26 @@ function normalizeData(data: AppData) {
 }
 
 export async function readAppData(): Promise<AppData> {
+  if (hasDatabaseUrl()) {
+    await ensureDatabaseState()
+    const record = await prisma.appState.findUniqueOrThrow({
+      where: { id: APP_STATE_ID },
+    })
+    const parsed = fromPrismaJson(record.payload)
+    const normalized = normalizeData(parsed)
+
+    if (normalized.changed) {
+      await prisma.appState.update({
+        where: { id: APP_STATE_ID },
+        data: {
+          payload: toPrismaJson(normalized.data),
+        },
+      })
+    }
+
+    return normalized.data
+  }
+
   await ensureDataFile()
   const raw = await readFile(DATA_FILE, 'utf8')
   const parsed = JSON.parse(raw) as AppData
@@ -316,6 +367,27 @@ export async function readAppData(): Promise<AppData> {
 
 export async function updateAppData<T>(updater: (data: AppData) => T | Promise<T>) {
   const next = writeQueue.then(async () => {
+    if (hasDatabaseUrl()) {
+      await ensureDatabaseState()
+
+      return prisma.$transaction(async (tx) => {
+        const record = await tx.appState.findUniqueOrThrow({
+          where: { id: APP_STATE_ID },
+        })
+        const data = normalizeData(fromPrismaJson(record.payload)).data
+        const result = await updater(data)
+
+        await tx.appState.update({
+          where: { id: APP_STATE_ID },
+          data: {
+            payload: toPrismaJson(data),
+          },
+        })
+
+        return result
+      })
+    }
+
     const data = await readAppData()
     const result = await updater(data)
     await writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8')

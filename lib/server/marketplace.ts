@@ -587,6 +587,8 @@ export async function cancelTouristBooking(
       )
     }
 
+    const dispute = data.disputes.find((item) => item.bookingId === booking.id)
+
     return {
       id: booking.id,
       experienceId: experience.id,

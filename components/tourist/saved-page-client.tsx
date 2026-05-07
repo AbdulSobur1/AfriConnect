@@ -3,7 +3,14 @@
 import { BackButton } from '@/components/common/back-button'
 import { Header } from '@/components/common/header'
 import { Button } from '@/components/ui/button'
-import { Empty } from '@/components/ui/empty'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { ExperienceCard } from '@/components/tourist/experience-card'
 import { Experience } from '@/lib/types'
 import Link from 'next/link'
@@ -20,16 +27,22 @@ export function SavedPageClient({ experiences }: { experiences: Experience[] }) 
           <h1 className="mb-8 text-4xl font-bold text-foreground">Saved Experiences</h1>
 
           {experiences.length === 0 ? (
-            <Empty
-              icon={Heart}
-              title="No Saved Experiences"
-              description="Start exploring and save your favorite experiences to come back to them later."
-              action={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Heart className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>No Saved Experiences</EmptyTitle>
+                <EmptyDescription>
+                  Start exploring and save your favorite experiences to come back to them later.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
                 <Button asChild>
                   <Link href="/experiences">Explore Experiences</Link>
                 </Button>
-              }
-            />
+              </EmptyContent>
+            </Empty>
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
               {experiences.map((experience) => (
